@@ -829,13 +829,15 @@ function wireSig(canvas) {
       img.src = v; }
   };
   canvas._refit = fit;
-  fit(); let drawing = false, lx = 0, ly = 0;
+  fit(); let drawing = false, stroked = false, lx = 0, ly = 0;
   const pos = e => { const r = canvas.getBoundingClientRect(); const p = e.touches ? e.touches[0] : e;
     return [p.clientX - r.left, p.clientY - r.top]; };
-  const start = e => { e.preventDefault(); drawing = true; [lx, ly] = pos(e); };
+  const start = e => { e.preventDefault(); drawing = true; stroked = false; [lx, ly] = pos(e); };
   const move = e => { if (!drawing) return; e.preventDefault(); const [x, y] = pos(e);
-    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(x, y); ctx.stroke(); lx = x; ly = y; };
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(x, y); ctx.stroke(); lx = x; ly = y; stroked = true; };
   const end = () => { if (!drawing) return; drawing = false;
+    // un tap sin trazos no emite firma: sigData queda intacto (o vacío), nunca un PNG en blanco
+    if (!stroked) return;
     // downscale to keep <1MB
     const small = document.createElement('canvas'); small.width = 480; small.height = 180;
     small.getContext('2d').drawImage(canvas, 0, 0, 480, 180);
