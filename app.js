@@ -184,21 +184,24 @@ function setOutbox(q) {
   try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(q)); return true; }
   catch (e) { toast(t('outboxFull')); return false; } // quota exceeded: loud, not silent
 }
-function queueWrite(coll, docId, data) {
+function queueWrite(coll, docId, data, auditAction) {
   const q = outbox();
   q.push({coll, docId, data, queuedAt: Date.now(),
-    key: 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2)});
+    key: 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2),
+    audit: auditAction ? {action: auditAction, actor: S.actor || 'anon', mode: S.mode || 'none'} : null});
   if (setOutbox(q)) toast(t('offlineQueued'));
 }
-async function writeDoc(coll, docId, data) {
-  // writes with explicit demo flag default; returns id. Queues offline.
-  if (!FB_OK || !navigator.onLine) { queueWrite(coll, docId, data); return docId || 'queued-' + Date.now(); }
+/* Returns {id, queued}. Never hands out fake "queued-<ts>" ids: queued writes
+   report QUEUED (not success) and their audit is deferred until sync, when the
+   real doc id exists. demo:false default applies to offline writes too. */
+async function writeDoc(coll, docId, data, auditAction) {
+  if (!data.demo) data.demo = false;
+  if (!FB_OK || !navigator.onLine) { queueWrite(coll, docId, data, auditAction); return {id: null, queued: true}; }
   try {
-    if (!data.demo) data.demo = false;
     const ref = docId ? db.collection(coll).doc(docId) : db.collection(coll).doc();
     await ref.set(data, {merge: false});
-    return ref.id;
-  } catch (e) { queueWrite(coll, docId, data); return docId || 'queued-' + Date.now(); }
+    return {id: ref.id, queued: false};
+  } catch (e) { queueWrite(coll, docId, data, auditAction); return {id: null, queued: true}; }
 }
 let syncing = false;
 async function syncOutbox() {
@@ -208,10 +211,19 @@ async function syncOutbox() {
   try {
     const rest = [];
     for (const w of q) {
+      let ok = false, rid = null;
       try {
         const ref = w.docId ? db.collection(w.coll).doc(w.docId) : db.collection(w.coll).doc();
         await ref.set(w.data, {merge: false});
+        ok = true; rid = ref.id;
       } catch (e) { rest.push(w); }
+      if (ok && w.audit) { // deferred audit, now that the real doc id exists
+        try {
+          await db.collection('audit').doc().set({
+            actor: w.audit.actor, mode: w.audit.mode, action: w.audit.action,
+            collection: w.coll, docId: rid, at: ts()});
+        } catch (e) { /* audit best-effort; the doc itself already synced */ }
+      }
     }
     // merge anything queued while we were syncing — otherwise it is lost
     const done = new Set(q.map(w => w.key));
@@ -492,7 +504,8 @@ async function createIncident() {
   const data = { name_es: name, date: $('idate').value || '2026-09-20',
     kind: $('ikind').value, status: 'active', demo: false,
     actor: S.actor, createdAt: ts() };
-  const id = await writeDoc('incidents', null, data);
+  const {id, queued} = await writeDoc('incidents', null, data, 'incident.create');
+  if (queued) { renderIncidents(); return; } // "encolado" toast already shown
   await audit('incident.create', 'incidents', id);
   toast(t('incCreated')); renderIncidents();
 }
@@ -857,7 +870,8 @@ async function saveSubmission(status) {
     fieldValues: values, tables, status, demo: false,
     actor: S.actor, uid: S.uid || null, createdAt: ts(), updatedAt: ts()
   };
-  const id = await writeDoc('submissions', null, doc);
+  const {id, queued} = await writeDoc('submissions', null, doc, 'submission.' + status);
+  if (queued) return; // "encolado para sincronizar" toast shown; stay on the form, draft intact
   await audit('submission.' + status, 'submissions', id);
   toast(t('saved')); S.submissionId = id; renderSubmission(id);
 }
@@ -943,9 +957,9 @@ async function uploadScan(subId) {
     const doc = { incidentId: S.incidentId, submissionId: subId || null,
       fileName: f.name, storagePath: path, actor: S.actor, uid: S.uid || null,
       demo: false, createdAt: ts() };
-    const id = await writeDoc('scans', null, doc);
-    await audit('scan.upload', 'scans', id);
-    toast(t('scanOk')); renderScans(subId);
+    const {id, queued} = await writeDoc('scans', null, doc, 'scan.upload');
+    if (!queued) { await audit('scan.upload', 'scans', id); toast(t('scanOk')); }
+    renderScans(subId);
   } catch (e) {
     const code = (e && e.code) || '';
     toast(code.includes('unauthorized') || code.includes('permission') ? t('scan403') : t('scanErr'));
