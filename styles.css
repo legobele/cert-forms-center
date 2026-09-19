@@ -306,6 +306,7 @@ footer.foot button.on{background:var(--ink);color:var(--amber)}
   .kv{border-top:1px solid #ddd1b4;padding-top:8px}
   .kv dt{color:#5c5340}
   .kv .pv{border-bottom:1px solid #999;min-height:1.4em;padding:2px 0}
+  table.form tr,.signbox,.kv{break-inside:avoid;page-break-inside:avoid}
 }
 .print-area .pv{border-bottom:1px solid #999;min-height:1.2em;padding:2px 0}
 
