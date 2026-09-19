@@ -400,6 +400,14 @@ function renderNewIncident() {
     <button class="ghost" onclick="renderIncidents()">${esc(t('cancel'))}</button>
   </div>`;
 }
+function renderNewIncidentKeep() {
+  // language toggle: keep what the user already typed
+  const keep = { name: $('iname') && $('iname').value, date: $('idate') && $('idate').value, kind: $('ikind') && $('ikind').value };
+  renderNewIncident();
+  if (keep.name != null) $('iname').value = keep.name;
+  if (keep.date) $('idate').value = keep.date;
+  if (keep.kind) $('ikind').value = keep.kind;
+}
 async function createIncident() {
   const name = $('iname').value.trim(); if (!name) { toast(t('nameEs')); return; }
   const data = { name_es: name, date: $('idate').value || '2026-09-20',
@@ -694,6 +702,49 @@ async function renderFill(tplId) {
   document.querySelectorAll('canvas.sig').forEach(wireSig);
 }
 function clearSigs() { document.querySelectorAll('canvas.sig').forEach(c => c._clear && c._clear()); }
+/* Language toggle mid-fill: snapshot the draft, re-render, restore. */
+async function renderFillKeepDraft() {
+  let draft = null, team = null;
+  try {
+    if (curForm && S.templateId) {
+      draft = collectValues('fld', curForm);
+      team = $('sub-team') ? $('sub-team').value : null;
+    }
+  } catch (e) { draft = null; }
+  await renderFill(S.templateId);
+  if (draft) restoreDraft(draft, team);
+}
+function restoreDraft(draft, team) {
+  if (team != null && $('sub-team')) $('sub-team').value = team;
+  const values = draft.values || {};
+  document.querySelectorAll('[data-f]').forEach(el => {
+    const k = el.dataset.f;
+    if (!Object.prototype.hasOwnProperty.call(values, k)) return;
+    const v = values[k];
+    if (el.tagName === 'CANVAS') {
+      if (v) { // redraw the captured signature onto the fresh canvas
+        sigData[el.id] = v;
+        const img = new Image();
+        img.onload = () => { try { el.getContext('2d').drawImage(img, 0, 0, el.clientWidth, el.clientHeight); } catch (e) {} };
+        img.src = v;
+      }
+    } else if (el.type === 'checkbox') el.checked = !!v;
+    else el.value = v ?? '';
+  });
+  for (const [tn, rows] of Object.entries(draft.tables || {})) {
+    if (!Array.isArray(rows)) continue;
+    const tbl = $('fld__tbl__' + tn);
+    if (!tbl) continue;
+    while (tbl.querySelectorAll('tbody tr').length < rows.length) addTableRow('fld', tn);
+    for (const [rk, row] of Object.entries(rows)) {
+      for (const [c, v] of Object.entries(row || {})) {
+        const el = tbl.querySelector(`[data-r="${rk}"][data-c="${CSS.escape(String(c))}"]`);
+        if (!el) continue;
+        if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+      }
+    }
+  }
+}
 async function saveSubmission(status) {
   const {values, tables, reqMissing} = collectValues('fld', curForm);
   if (reqMissing.length) { toast(t('fillRequired') + ' ' + reqMissing.slice(0,3).join(', ')); return; }
@@ -764,7 +815,7 @@ async function renderSubmission(id) {
 
 /* ---------- view: scans ---------- */
 function renderScans(subId) {
-  S.view = 'scans';
+  S.view = 'scans'; S.scanSubId = subId || null;
   app().innerHTML = chrome(`📎 ${esc(t('scans'))}`, {lock:true}) + `
   <div class="card">
     <label class="f">${esc(t('pickFile'))}</label>
@@ -1010,6 +1061,11 @@ function render() {
     case 'kiosk': return modeKiosk();
     case 'personal': return modePersonal();
     case 'incidents': return renderIncidents();
+    case 'newincident': return renderNewIncidentKeep();
+    case 'templates': return renderTemplates();
+    case 'fill': return renderFillKeepDraft();
+    case 'scans': return renderScans(S.scanSubId);
+    case 'submission': return S.submissionId ? renderSubmission(S.submissionId) : renderIncidents();
     case 'demo': return renderDemoView();
     case 'dashboard': return renderDashboard();
     case 'error': return renderRouteError(S.routeErr || 'hash');
