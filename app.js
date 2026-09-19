@@ -1135,7 +1135,7 @@ async function renderSubmission(id) {
     const rows = arr.filter(r => r && typeof r === 'object'); // skip null holes from legacy sparse rows
     const cols = [...new Set(rows.flatMap(r => Object.keys(r)))];
     return `<h3>${esc(tn)}</h3><table class="form"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
-      rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('') + `</tbody></table>`;
+      rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] === true ? '✓' : r[c] === false ? '✗' : (r[c] ?? ''))}</td>`).join('')}</tr>`).join('') + `</tbody></table>`;
   }).join('');
   app().innerHTML = chrome(`📄 ${esc(name)}`, {lock:true}) + `
   <div class="card print-area">
