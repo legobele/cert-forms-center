@@ -592,7 +592,7 @@ function renderIncidents() {
     ${qlen ? `<div class="sync-strip"><span>&#9673; ${qlen} ${esc(LANG==='es'?'formularios por sincronizar':'forms pending sync')}</span><span>&rarr;</span></div>` : ''}
     <button class="warn" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button>
     <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
-  if (!FB_OK) { $('inclist').innerHTML = `<p class="mut">offline</p>`; return; }
+  if (!FB_OK) { $('inclist').innerHTML = `<p class="mut">${esc(t('routeErrOffline'))}</p>`; return; }
   S.unsub.push(db.collection('incidents').orderBy('createdAt','desc').limit(50)
     .onSnapshot(snap => {
       const items = [];
@@ -693,7 +693,7 @@ function renderDashboard() {
           <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
           : `<p class="mut small">${esc(t('noItems'))}</p>`;
       }, snapErr('dash-scans')));
-  }).catch(() => { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p class="mut">offline</p></div>`; });
+  }).catch(() => { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p class="mut">${esc(t('routeErrOffline'))}</p></div>`; });
 }
 function drawDashShell() {
   const i = S.incident;
