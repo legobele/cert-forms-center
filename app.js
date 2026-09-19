@@ -716,7 +716,7 @@ function drawDashShell() {
   <div class="card">
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
-      <h2>${esc(i.name_es || S.incidentId)}</h2>
+      <h1>${esc(i.name_es || S.incidentId)}</h1>
       <div class="sub">${esc(t('dashboard'))}</div>
     </div>
     <div class="kv"><dt>${esc(t('date'))}</dt><dd>${esc(i.date||'')}</dd>
@@ -997,7 +997,7 @@ async function renderFill(tplId) {
     <div class="formid"><span>N.&ordm; ${esc(f.id)} &middot; v${esc(String(f.version||1))}</span><span>${esc(t('fillOut'))}</span></div>
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
-      <h2>${esc(LANG==='es'?f.title:f.title_en)}</h2>
+      <h1>${esc(LANG==='es'?f.title:f.title_en)}</h1>
       <div class="sub">${esc(t('fill'))}</div>
     </div>
     <div class="fsection"><span class="section-tag"><span class="n">01</span>${esc(t('secGeneral'))}</span>
@@ -1121,7 +1121,7 @@ async function renderSubmission(id) {
     <div class="formid"><span>N.&ordm; ${esc(s.templateId||'')}</span><span>${fmtT(s.createdAt)}</span></div>
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
-      <h2>${esc(name)}</h2>
+      <h1>${esc(name)}</h1>
       <div class="sub"><span class="stamp ${s.status==='signed'?'red':'amber'}" style="font-size:15px">${esc(s.status==='signed'?t('signed'):t('draft'))}</span></div>
     </div>
     <div class="kv">
@@ -1222,7 +1222,7 @@ async function renderDemoView() {
     <span class="stamp red demo-corner">Demo</span>
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
-      <h2>${esc(t('demoView'))}</h2>
+      <h1>${esc(t('demoView'))}</h1>
       <div class="sub">${esc(t('demoSub'))}</div>
     </div>
     <div class="demo-banner"><span class="stamp red">Demo</span></div>
