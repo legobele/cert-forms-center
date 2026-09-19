@@ -66,7 +66,7 @@ const STR = {
     sign: "Firmar", clear: "Borrar firma", saved: "Guardado",
     draft: "Borrador", signed: "Firmado", print: "Imprimir",
     chooseTemplate: "Elija una plantilla", required: "obligatorio",
-    addRow: "+ Fila", delRow: "✕", delRowAria: "Eliminar fila", team: "Equipo",
+    addRow: "+ Fila", delRow: "✕", delRowAria: "Eliminar fila", rowWord: "Fila", team: "Equipo",
     uploadScan: "Subir escaneo", pickFile: "Elegir archivo",
     scan403: "Sin permiso para subir (el servidor denegó el acceso). Guarde el archivo localmente por ahora.",
     scanOk: "Escaneo subido", scanErr: "No se pudo subir el escaneo.",
@@ -140,7 +140,7 @@ const STR = {
     sign: "Sign", clear: "Clear signature", saved: "Saved",
     draft: "Draft", signed: "Signed", print: "Print",
     chooseTemplate: "Pick a template", required: "required",
-    addRow: "+ Row", delRow: "✕", delRowAria: "Delete row", team: "Team",
+    addRow: "+ Row", delRow: "✕", delRowAria: "Delete row", rowWord: "Row", team: "Team",
     uploadScan: "Upload scan", pickFile: "Choose file",
     scan403: "No permission to upload (server denied access). Keep the file locally for now.",
     scanOk: "Scan uploaded", scanErr: "Could not upload the scan.",
@@ -823,25 +823,27 @@ function fieldInput(f, prefix, val) {
 }
 function tableHtml(tb, prefix, rows, sec) {
   const n = Math.max(rows ? rows.length : 0, tb.min_rows || 3);
-  let head = tb.columns.map(c => `<th>${LBL(c)}</th>`).join('') + `<th></th>`;
+  const cellName = (c, r) => `${LBL(c)}, ${esc(t('rowWord'))} ${r+1}`; // nombre accesible: columna + fila
+  let head = tb.columns.map(c => `<th scope="col">${LBL(c)}</th>`).join('') + `<th></th>`;
   let body = '';
   for (let r = 0; r < n; r++) {
     body += '<tr>';
     for (const c of tb.columns) {
       const v = rows && rows[r] ? rows[r][c.name] : '';
       const id = `${prefix}__${tb.name}__${r}__${c.name}`;
+      const an = `aria-label="${cellName(c, r)}"`;
       let ctrl;
-      if (c.type === 'select') ctrl = `<select id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}"><option value=""></option>` +
+      if (c.type === 'select') ctrl = `<select id="${id}" ${an} data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}"><option value=""></option>` +
         c.options.map(o => `<option value="${esc(o.value)}" ${o.value===v?'selected':''}>${esc(LANG==='es'?o.label:o.label_en)}</option>`).join('') + `</select>`;
-      else if (c.type === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" ${v?'checked':''}>`;
+      else if (c.type === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" ${an} data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" ${v?'checked':''}>`;
       else { const cmap = {date:'date', time:'time', datetime:'datetime-local', number:'number'};
-        ctrl = `<input type="${cmap[c.type]||'text'}" id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`; }
+        ctrl = `<input type="${cmap[c.type]||'text'}" id="${id}" ${an} data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`; }
       body += `<td>${ctrl}</td>`;
     }
     body += `<td><button class="ghost" type="button" aria-label="${esc(t('delRowAria'))}" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
   }
   return `<div class="fsection"><span class="section-tag">${sec?`<span class="n">${esc(sec)}</span>`:''}${esc(LANG==='es'?tb.label:tb.label_en)}</span>
-  <table class="form" id="${prefix}__tbl__${esc(tb.name)}" data-cols="${esc(JSON.stringify(tb.columns))}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+  <table class="form" id="${prefix}__tbl__${esc(tb.name)}" data-cols="${esc(JSON.stringify(tb.columns))}" tabindex="0" role="region" aria-label="${esc(LANG==='es'?tb.label:tb.label_en)}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
   <button class="sec small" type="button" onclick="addTableRow('${prefix}','${esc(tb.name)}')">${esc(t('addRow'))}</button></div>`;
 }
 function addTableRow(prefix, tname) {
@@ -856,11 +858,14 @@ function addTableRow(prefix, tname) {
   // minted generic col0/col1 text inputs here, which corrupted the table
   // schema in Firestore and made draft restore drop the new row's values.
   const srcs = [...tbl.querySelectorAll('tbody tr:first-child [data-t]')];
+  let colLbl = {};
+  try { colLbl = Object.fromEntries(JSON.parse(tbl.dataset.cols || '[]').map(c => [c.name, (LANG === 'es' ? c.label : c.label_en) || c.name])); } catch (e) {}
   if (srcs.length) {
     for (const src of srcs) {
       const el = src.cloneNode(true); // keeps <select> options
       el.id = `${prefix}__${tname}__${r}__${src.dataset.c}`;
       el.setAttribute('data-r', r);
+      el.setAttribute('aria-label', `${esc(colLbl[src.dataset.c] || src.dataset.c)}, ${esc(t('rowWord'))} ${r+1}`); // fila correcta, no la clonada
       if (el.type === 'checkbox') { el.checked = false; el.removeAttribute('checked'); }
       else if (el.tagName === 'SELECT') el.selectedIndex = 0;
       else { el.value = ''; el.removeAttribute('value'); }
