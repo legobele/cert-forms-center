@@ -67,10 +67,14 @@ const STR = {
     uploadScan: "Subir escaneo", pickFile: "Elegir archivo",
     scan403: "Sin permiso para subir (el servidor denegó el acceso). Guarde el archivo localmente por ahora.",
     scanOk: "Escaneo subido", scanErr: "No se pudo subir el escaneo.",
+    scanTooBig: "Archivo demasiado grande (máx. 10 MB).",
+    scanBadType: "Tipo de archivo no permitido (imagen o PDF).",
+    scanPending: "No se pudo subir el archivo; quedó registrado como pendiente.",
     offlineQueued: "Sin conexión: guardado en la cola, se sincronizará.",
     outboxSynced: "Cola sincronizada.",
     outboxFull: "Almacenamiento lleno: no se pudo guardar en la cola. Libere espacio e inténtelo de nuevo.",
     lock: "Bloquear", lang: "EN",
+    pending: "Pendiente",
     teamDefault: "Equipo 2",
     simStatuses: ["En ruta al área", "Evaluando daños", "En puesto de mando", "Completado"],
     simMsgs: ["Llegada al punto de reunión confirmada.", "Solicitando más botiquines en el área B.", "Comunicación radial restablecida."],
@@ -126,10 +130,14 @@ const STR = {
     uploadScan: "Upload scan", pickFile: "Choose file",
     scan403: "No permission to upload (server denied access). Keep the file locally for now.",
     scanOk: "Scan uploaded", scanErr: "Could not upload the scan.",
+    scanTooBig: "File too large (max 10 MB).",
+    scanBadType: "File type not allowed (image or PDF).",
+    scanPending: "Could not upload the file; recorded as pending.",
     offlineQueued: "Offline: saved to queue, will sync.",
     outboxSynced: "Queue synced.",
     outboxFull: "Storage full: could not save to the queue. Free space and try again.",
     lock: "Lock", lang: "ES",
+    pending: "Pending",
     teamDefault: "Team 2",
     simStatuses: ["En route to the area", "Assessing damage", "At the command post", "Completed"],
     simMsgs: ["Arrival at the rally point confirmed.", "Requesting more first-aid kits in area B.", "Radio communication restored."],
@@ -987,7 +995,7 @@ function renderScans(subId) {
       const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
       const el = $('scanlist'); if (!el) return;
       el.innerHTML = rows.length ? rows.map(r => `
-        <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b><br>
+        <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b>${r.status==='pending'?` <span class="badge">⏳ ${esc(t('pending'))}</span>`:''}<br>
         <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
         : `<p class="mut">${esc(t('noItems'))}</p>`;
     }, snapErr('scanlist')));
@@ -995,21 +1003,34 @@ function renderScans(subId) {
 async function uploadScan(subId) {
   const f = $('scanfile').files[0];
   if (!f) return;
+  // 1. validate before anything touches the network
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  const okType = f.type.startsWith('image/') || f.type === 'application/pdf' ||
+    ['jpg','jpeg','png','gif','webp','pdf'].includes(ext);
+  if (!okType) { toast(t('scanBadType')); return; }
+  if (f.size > 10 * 1024 * 1024) { toast(t('scanTooBig')); return; }
   const base = subId || S.incidentId || 'misc';
   const path = `forms/scans/${base}/${Date.now()}_${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
-  try {
-    const ref = storage.ref(path);
-    await ref.put(f);
-    const doc = { incidentId: S.incidentId, submissionId: subId || null,
-      fileName: f.name, storagePath: path, actor: S.actor, uid: S.uid || null,
-      demo: false, createdAt: ts() };
-    const {id, queued} = await writeDoc('scans', null, doc, 'scan.upload');
-    if (!queued) { await audit('scan.upload', 'scans', id); toast(t('scanOk')); }
-    renderScans(subId);
-  } catch (e) {
-    const code = (e && e.code) || '';
-    toast(code.includes('unauthorized') || code.includes('permission') ? t('scan403') : t('scanErr'));
+  const meta = { incidentId: S.incidentId, submissionId: subId || null,
+    fileName: f.name, storagePath: path, actor: S.actor, uid: S.uid || null,
+    demo: false, createdAt: ts() };
+  // 2. Firestore doc BEFORE the upload, marked pending
+  const {id: scanId, queued} = await writeDoc('scans', null, {...meta, status: 'pending'}, 'scan.upload');
+  if (queued) { renderScans(subId); return; } // offline: pending doc queued; no network for put()
+  // 3. upload with one retry
+  let putErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { await storage.ref(path).put(f); putErr = null; break; }
+    catch (e) { putErr = e; }
   }
+  if (putErr) {
+    toast(t('scanPending')); // doc stays pending; user can retry later
+  } else {
+    try { await db.collection('scans').doc(scanId).update({status: 'done'}); } catch (e) {}
+    await audit('scan.upload', 'scans', scanId);
+    toast(t('scanOk'));
+  }
+  renderScans(subId);
 }
 
 /* ---------- DEMO: live view + simulator ---------- */
