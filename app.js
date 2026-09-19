@@ -175,6 +175,13 @@ function toast(msg) {
   document.body.appendChild(d);
   setTimeout(() => d.remove(), 3200);
 }
+/* In-flight guard: double-clicks / double-taps don't create duplicates. */
+const _busy = new Set();
+async function once(key, fn) {
+  if (_busy.has(key)) return;
+  _busy.add(key);
+  try { await fn(); } finally { _busy.delete(key); }
+}
 const ts = () => firebase.firestore.FieldValue.serverTimestamp();
 const fmtT = v => {
   if (!v) return '—';
@@ -541,7 +548,7 @@ function renderNewIncident() {
     <label class="f">${esc(t('date'))}</label><input id="idate" type="date" value="2026-09-20">
     <label class="f">${esc(t('kind'))}</label>
     <select id="ikind"><option value="exercise">${esc(t('exercise'))}</option><option value="real">${esc(t('real'))}</option></select>
-    <button onclick="createIncident()">${esc(t('create'))}</button>
+    <button onclick="once('createIncident',createIncident)">${esc(t('create'))}</button>
     <button class="ghost" onclick="renderIncidents()">${esc(t('cancel'))}</button>
   </div>`;
 }
@@ -849,8 +856,8 @@ async function renderFill(tplId) {
     ${footNonsig.length ? `<div class="fsection"><span class="section-tag"><span class="n">${secClose}</span>${esc(LANG==='es'?'Cierre':'Closing')}</span>${footNonsig.map(x => fieldInput(x, P)).join('')}</div>` : ''}
     ${footSig.length ? `<div class="fsection"><span class="section-tag"><span class="n">${secSign}</span>${esc(t('signature'))}</span>${footSig.map(x => fieldInput(x, P)).join('')}<button class="sec small" type="button" onclick="clearSigs()">${esc(t('clear'))}</button></div>` : ''}
     <hr>
-    <button class="warn" onclick="saveSubmission('signed')">${esc(t('submitSigned'))}</button>
-    <button class="sec" onclick="saveSubmission('draft')">${esc(t('submitDraft'))}</button>
+    <button class="warn" onclick="once('saveSubmission',()=>saveSubmission('signed'))">${esc(t('submitSigned'))}</button>
+    <button class="sec" onclick="once('saveSubmission',()=>saveSubmission('draft'))">${esc(t('submitDraft'))}</button>
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button>
   </div>` + footnav('incidents');
   document.querySelectorAll('canvas.sig').forEach(wireSig);
@@ -986,7 +993,7 @@ function renderScans(subId) {
   <div class="card">
     <label class="f">${esc(t('pickFile'))}</label>
     <input type="file" id="scanfile" accept="image/*,.pdf">
-    <button onclick="uploadScan('${esc(subId||'')}')">${esc(t('uploadScan'))}</button>
+    <button onclick="once('uploadScan',()=>uploadScan('${esc(subId||'')}'))">${esc(t('uploadScan'))}</button>
     <button class="ghost" onclick="${subId ? `openSubmission('${esc(subId)}')` : 'renderDashboard()'}">${esc(t('back'))}</button>
   </div>
   <div class="card"><h3>${esc(t('scans'))}</h3><div id="scanlist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
@@ -1267,4 +1274,4 @@ Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock
   startKiosk, doLogin, doRegister, exitMode, go, renderIncidents, renderNewIncident,
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
   clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
-  enterDemo, exitDemo, exitRouteError, restoreStashedDraft, discardStashedDraft });
+  enterDemo, exitDemo, exitRouteError, restoreStashedDraft, discardStashedDraft, once });
