@@ -183,6 +183,30 @@ async function once(key, fn) {
   try { await fn(); } finally { _busy.delete(key); }
 }
 const ts = () => firebase.firestore.FieldValue.serverTimestamp();
+/* serverTimestamp() sentinels don't survive the outbox's JSON round-trip
+   (they'd replay as garbage objects). Strip to a marker on queue, re-stamp on sync. */
+const TS_MARK = '__cfc_server_ts';
+function stripSentinels(data) {
+  const FV = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) || null;
+  const walk = v => {
+    if (FV && v instanceof FV) return {[TS_MARK]: true};
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') { const o = {}; for (const [k, x] of Object.entries(v)) o[k] = walk(x); return o; }
+    return v;
+  };
+  return walk(data);
+}
+function restoreSentinels(data) {
+  const walk = v => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') {
+      if (v[TS_MARK] === true) return ts();
+      const o = {}; for (const [k, x] of Object.entries(v)) o[k] = walk(x); return o;
+    }
+    return v;
+  };
+  return walk(data);
+}
 const fmtT = v => {
   if (!v) return '—';
   const d = v.toDate ? v.toDate() : new Date(v);
@@ -237,7 +261,7 @@ function setOutbox(q) {
 }
 function queueWrite(coll, docId, data, auditAction) {
   const q = outbox();
-  q.push({coll, docId, data, queuedAt: Date.now(),
+  q.push({coll, docId, data: stripSentinels(data), queuedAt: Date.now(),
     key: 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2),
     audit: auditAction ? {action: auditAction, actor: S.actor || 'anon', mode: S.mode || 'none'} : null});
   if (setOutbox(q)) toast(t('offlineQueued'));
@@ -265,7 +289,7 @@ async function syncOutbox() {
       let ok = false, rid = null;
       try {
         const ref = w.docId ? db.collection(w.coll).doc(w.docId) : db.collection(w.coll).doc();
-        await ref.set(w.data, {merge: false});
+        await ref.set(restoreSentinels(w.data), {merge: false});
         ok = true; rid = ref.id;
       } catch (e) { rest.push(w); }
       if (ok && w.audit) { // deferred audit, now that the real doc id exists
