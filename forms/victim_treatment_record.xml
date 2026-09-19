@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CERT Form Template — FEMA CERT Unidad 6: Documentación
+     id: victim_treatment_record | version: 1 | labels: ES (primario), EN (secundario)
+     Uso: documenta cada persona que ingresa al área de tratamiento y su condición de triaje (Inmediato / Demorado / Menor / Fallecido). -->
+<form id="victim_treatment_record" version="1" lang="es">
+  <meta>
+    <title>Registro del área de tratamiento de víctimas</title>
+    <title_en>Victim Treatment Area Record</title_en>
+    <source>FEMA CERT — Unidad 6: Organización del CERT / Documentación</source>
+  </meta>
+  <header>
+    <field name="date" type="date" label="Fecha" label_en="Date" required="true"/>
+    <field name="treatment_area_location" type="text" label="Ubicación del área de tratamiento" label_en="Treatment area location"/>
+    <field name="treatment_leader" type="text" label="Líder del área" label_en="Treatment area leader"/>
+    <field name="page" type="text" label="Página ___ de ___" label_en="Page ___ of ___"/>
+  </header>
+  <tables>
+    <table name="victim_rows" label="Víctimas atendidas" label_en="Victims treated" min_rows="12">
+      <column name="victim_id" type="text" label="N.º / nombre de la víctima" label_en="Victim no. / name"/>
+      <column name="time_in" type="time" label="Hora de ingreso" label_en="Time in"/>
+      <column name="triage_category" type="select" label="Categoría de triaje" label_en="Triage category">
+        <option value="immediate" label="Inmediato" label_en="Immediate"/>
+        <option value="delayed" label="Demorado" label_en="Delayed"/>
+        <option value="minor" label="Menor" label_en="Minor"/>
+        <option value="deceased" label="Fallecido" label_en="Deceased"/>
+      </column>
+      <column name="injuries" type="text" label="Lesiones" label_en="Injuries"/>
+      <column name="treatment_given" type="text" label="Tratamiento brindado" label_en="Treatment given"/>
+      <column name="time_out" type="time" label="Hora de salida" label_en="Time out"/>
+      <column name="disposition" type="select" label="Destino" label_en="Disposition">
+        <option value="transported" label="Trasladado" label_en="Transported"/>
+        <option value="released" label="Dado de alta" label_en="Released"/>
+        <option value="deceased" label="Fallecido" label_en="Deceased"/>
+        <option value="on_site" label="En el lugar" label_en="On site"/>
+      </column>
+      <column name="destination" type="text" label="Trasladado a / entregado a" label_en="Transported to / released to"/>
+    </table>
+  </tables>
+  <footer>
+    <field name="treatment_leader_signature" type="signature" label="Firma del líder del área" label_en="Treatment area leader signature"/>
+  </footer>
+</form>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CERT Form Template — FEMA CERT Unidad 6: Documentación
+     id: personnel_signin | version: 1 | labels: ES (primario), EN (secundario)
+     Uso: el escriba registra a cada voluntario en el área de concentración, anotando habilidades y asignación preferida. -->
+<form id="personnel_signin" version="1" lang="es">
+  <meta>
+    <title>Registro de recursos humanos</title>
+    <title_en>Personnel Resources Sign-In</title_en>
+    <source>FEMA CERT — Unidad 6: Organización del CERT / Documentación</source>
+  </meta>
+  <header>
+    <field name="date" type="date" label="Fecha" label_en="Date" required="true"/>
+    <field name="staging_location" type="text" label="Área de concentración" label_en="Staging location"/>
+    <field name="scribe" type="text" label="Escriba" label_en="Scribe"/>
+    <field name="page" type="text" label="Página ___ de ___" label_en="Page ___ of ___"/>
+  </header>
+  <tables>
+    <table name="signin_rows" label="Registro de voluntarios" label_en="Volunteer sign-in" min_rows="12">
+      <column name="name" type="text" label="Nombre" label_en="Name"/>
+      <column name="time_in" type="time" label="Hora de entrada" label_en="Time in"/>
+      <column name="skills" type="text" label="Habilidades / calificaciones" label_en="Skills / qualifications"/>
+      <column name="preferred_assignment" type="text" label="Asignación preferida" label_en="Preferred assignment"/>
+      <column name="team_assigned" type="text" label="Equipo asignado" label_en="Team assigned"/>
+      <column name="time_out" type="time" label="Hora de salida" label_en="Time out"/>
+    </table>
+  </tables>
+  <footer>
+    <field name="scribe_signature" type="signature" label="Firma del escriba" label_en="Scribe signature"/>
+  </footer>
+</form>

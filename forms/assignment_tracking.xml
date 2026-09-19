@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CERT Form Template — FEMA CERT Unidad 6: Documentación
+     id: assignment_tracking | version: 1 | labels: ES (primario), EN (secundario)
+     Uso: la mantiene el líder del equipo / comandante; es la herramienta más importante para registrar las actividades de los equipos funcionales. -->
+<form id="assignment_tracking" version="1" lang="es">
+  <meta>
+    <title>Registro de seguimiento de incidentes y asignaciones</title>
+    <title_en>Incident / Assignment Tracking Log</title_en>
+    <source>FEMA CERT — Unidad 6: Organización del CERT / Documentación</source>
+  </meta>
+  <header>
+    <field name="incident_name" type="text" label="Nombre del incidente" label_en="Incident name" required="true"/>
+    <field name="date" type="date" label="Fecha" label_en="Date" required="true"/>
+    <field name="prepared_by" type="text" label="Preparado por" label_en="Prepared by"/>
+    <field name="page" type="text" label="Página ___ de ___" label_en="Page ___ of ___"/>
+  </header>
+  <tables>
+    <table name="assignment_rows" label="Asignaciones" label_en="Assignments" min_rows="10">
+      <column name="assignment_id" type="text" label="N.º de asignación" label_en="Assignment no."/>
+      <column name="datetime" type="datetime" label="Fecha / hora" label_en="Date / time"/>
+      <column name="location" type="text" label="Ubicación" label_en="Location"/>
+      <column name="team" type="text" label="Equipo" label_en="Team"/>
+      <column name="team_leader" type="text" label="Líder" label_en="Leader"/>
+      <column name="objective" type="text" label="Tarea / objetivo" label_en="Task / objective"/>
+      <column name="status" type="select" label="Estado" label_en="Status">
+        <option value="assigned" label="Asignada" label_en="Assigned"/>
+        <option value="in_progress" label="En curso" label_en="In progress"/>
+        <option value="complete" label="Completada" label_en="Complete"/>
+      </column>
+      <column name="time_complete" type="time" label="Hora de finalización" label_en="Time complete"/>
+    </table>
+  </tables>
+  <footer>
+    <field name="ic_signature" type="signature" label="Firma del comandante / líder" label_en="IC / leader signature"/>
+  </footer>
+</form>

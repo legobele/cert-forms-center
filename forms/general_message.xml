@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CERT Form Template — FEMA CERT Unidad 6: Documentación
+     id: general_message | version: 1 | labels: ES (primario), EN (secundario)
+     Uso: mensajes entre niveles de mando y grupos; deben ser claros y concisos. -->
+<form id="general_message" version="1" lang="es">
+  <meta>
+    <title>Mensaje general</title>
+    <title_en>General Message</title_en>
+    <source>FEMA CERT — Unidad 6: Organización del CERT / Documentación</source>
+  </meta>
+  <header>
+    <field name="to" type="text" label="Para" label_en="To" required="true"/>
+    <field name="from" type="text" label="De" label_en="From" required="true"/>
+    <field name="datetime" type="datetime" label="Fecha / hora" label_en="Date / time" required="true"/>
+    <field name="subject" type="text" label="Asunto" label_en="Subject"/>
+    <field name="priority" type="select" label="Prioridad" label_en="Priority">
+      <option value="routine" label="Rutina" label_en="Routine"/>
+      <option value="urgent" label="Urgente" label_en="Urgent"/>
+    </field>
+    <field name="message" type="textarea" label="Mensaje" label_en="Message" required="true"/>
+    <field name="reply" type="textarea" label="Respuesta" label_en="Reply"/>
+  </header>
+  <footer>
+    <field name="time_received" type="time" label="Hora de recepción" label_en="Time received"/>
+    <field name="sender_signature" type="signature" label="Firma del remitente" label_en="Sender signature"/>
+    <field name="receiver_signature" type="signature" label="Firma del receptor" label_en="Receiver signature"/>
+  </footer>
+</form>

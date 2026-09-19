@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CERT Form Template — FEMA CERT Unidad 6: Documentación
+     id: damage_assessment | version: 1 | labels: ES (primario), EN (secundario)
+     Uso: la completan los miembros del CERT en ruta al área de concentración; se entrega al líder del equipo. -->
+<form id="damage_assessment" version="1" lang="es">
+  <meta>
+    <title>Evaluación de daños</title>
+    <title_en>Damage Assessment</title_en>
+    <source>FEMA CERT — Unidad 6: Organización del CERT / Documentación</source>
+  </meta>
+  <header>
+    <field name="incident_date" type="date" label="Fecha del incidente" label_en="Incident date" required="true"/>
+    <field name="team_name" type="text" label="Equipo" label_en="Team"/>
+    <field name="team_leader" type="text" label="Líder del equipo" label_en="Team leader"/>
+    <field name="scribe" type="text" label="Escriba" label_en="Scribe"/>
+    <field name="page" type="text" label="Página ___ de ___" label_en="Page ___ of ___"/>
+  </header>
+  <tables>
+    <table name="damage_rows" label="Daños observados por estructura / área" label_en="Observed damage by structure / area" min_rows="10">
+      <column name="address_location" type="text" label="Dirección / ubicación" label_en="Address / location"/>
+      <column name="structure_type" type="select" label="Tipo de estructura" label_en="Structure type">
+        <option value="residential" label="Residencial" label_en="Residential"/>
+        <option value="commercial" label="Comercial" label_en="Commercial"/>
+        <option value="industrial" label="Industrial" label_en="Industrial"/>
+        <option value="infrastructure" label="Infraestructura" label_en="Infrastructure"/>
+        <option value="other" label="Otro" label_en="Other"/>
+      </column>
+      <column name="damage_level" type="select" label="Nivel de daño" label_en="Damage level">
+        <option value="none" label="Ninguno" label_en="None"/>
+        <option value="light" label="Leve" label_en="Light"/>
+        <option value="moderate" label="Moderado" label_en="Moderate"/>
+        <option value="heavy" label="Grave" label_en="Heavy"/>
+        <option value="destroyed" label="Destruido" label_en="Destroyed"/>
+      </column>
+      <column name="fire" type="checkbox" label="Incendio" label_en="Fire"/>
+      <column name="hazmat" type="checkbox" label="Mat. peligrosos" label_en="Hazmat"/>
+      <column name="trapped_victims" type="checkbox" label="Víctimas atrapadas" label_en="Trapped victims"/>
+      <column name="utilities_damaged" type="checkbox" label="Servicios afectados" label_en="Utilities damaged"/>
+      <column name="access_notes" type="text" label="Acceso / notas" label_en="Access / notes"/>
+    </table>
+  </tables>
+  <footer>
+    <field name="time_submitted" type="time" label="Hora de entrega al líder" label_en="Time submitted to leader"/>
+    <field name="team_leader_signature" type="signature" label="Firma del líder del equipo" label_en="Team leader signature"/>
+  </footer>
+</form>
