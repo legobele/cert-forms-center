@@ -262,7 +262,7 @@ try {
 const S = {
   view: 'pin', mode: null, actor: null, uid: null,
   incidentId: null, incident: null, templateId: null, submissionId: null,
-  tplCache: {}, unsub: [], demoTimer: null,
+  tplCache: {}, unsub: [], demoTimer: null, dashSeq: 0,
 };
 function stopListeners() { S.unsub.forEach(u => { try { u(); } catch(e){} }); S.unsub = []; }
 /* onSnapshot error handler: replace the eternal "Cargando…" with an ES error + retry.
@@ -670,10 +670,12 @@ async function addTeam() {
 function openIncident(id) { S.incidentId = id; S.view = 'dashboard'; stopDemo(); setHash(routeFor('incident', id)); renderDashboard(); }
 function renderDashboard() {
   stopListeners();
+  const myId = S.incidentId, mySeq = ++S.dashSeq; // stale guard: a newer render supersedes this one
   app().innerHTML = chrome(`📋 ${esc(t('dashboard'))}`, {lock:true}) + `
   <div class="card"><p class="mut small">${esc(t('loading'))}</p></div>` + footnav('incidents');
-  const incRef = db.collection('incidents').doc(S.incidentId);
+  const incRef = db.collection('incidents').doc(myId);
   incRef.get().then(d => {
+    if (S.dashSeq !== mySeq) return; // superseded: no listeners, no render
     S.incident = d.data() || {};
     drawDashShell();
     // live: teams subcollection
