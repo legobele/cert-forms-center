@@ -1,41 +1,51 @@
 // ============================================================================
-// cert-forms-center — Cloud Storage security rules (Phase 3 QA war draft)
+// cert-forms-center — Cloud Storage security rules (MERGED, deployed via CLI)
 // Bucket: cert-forms-center.firebasestorage.app
 //
-// DEPLOYMENT — READ THIS FIRST:
-//   * Deploy target is the Firebase CONSOLE (Storage > Rules tab) or
-//     `firebase deploy --only storage`. This repo has NO CI wired for rules;
-//     the live ruleset is console-only.
-//   * This file preserves the currently-observed posture (public reads — the
-//     kiosk is unauthenticated and the app opens download URLs directly) and
-//     only ADDS the two server-side write constraints below. If the console
-//     ruleset restricts reads today, keep those restrictions instead of the
-//     `allow read: if true` lines.
+// MERGE RECORD (Sat 2026-09-19 ~6:35pm AST, console-ops):
+//   * Prod ruleset fetched live before merging:
+//     projects/cert-forms-center/rulesets/e6352db0-68f9-483f-8edc-6688473760fc
+//     Prod was:
+//       /forms/templates/{allPaths=**}    read:true,  write:false
+//       /forms/submissions/{allPaths=**}  read:true,  create:true
+//       /forms/scans/{allPaths=**}        read:true,  create:true
+//       /forms/bugshots/{allPaths=**}     read:true,  create:true
+//   * Merge: kept prod's exact match shapes and op granularity; the ONLY
+//     behavior change is the 10 MiB server-side cap on scan-object CREATES
+//     (the 10 MiB cap was client-side only — a 12.6 MiB object reached the
+//     bucket via raw REST in Phase 2). Update/delete on scans were never
+//     allowed and stay denied. Templates were already write-closed.
+//   * Reads stay public: the kiosk is unauthenticated and the app opens
+//     download URLs directly.
+//   * The existing 12.6 MiB object is deleted separately (operator cleanup);
+//     rules don't retroactively shrink it.
 // ============================================================================
 
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Form templates — T34 follow-up.
-    // The app's bucket-first template loader would let a planted
-    // damage_assessment.xml shadow the live template for every user, so
-    // client writes are fully closed. Templates deploy via console/CI only.
-    // (Whether an authenticated write was possible was never probed — the
-    // probe was blocked — so this closes it either way.)
-    match /forms/templates/{f} {
+    // Form templates — client writes fully closed (T34 follow-up).
+    // Templates deploy via console/CI only.
+    match /forms/templates/{allPaths=**} {
       allow read: if true;
       allow write: if false;
     }
 
-    // Scan uploads — the 10 MiB cap was client-side only (app.js uploadScan);
-    // a 12.6 MiB object reached the bucket via raw REST (Phase 2). Enforce
-    // the cap server-side. Reads stay public (see header note).
-    // OPERATOR: the existing 12.6 MiB object should be deleted/quarantined
-    // separately — rules don't retroactively shrink it.
-    match /forms/scans/{p=**} {
+    match /forms/submissions/{allPaths=**} {
       allow read: if true;
-      allow write: if request.resource.size < 10 * 1024 * 1024;
+      allow create: if true;
+    }
+
+    // Scan uploads — 10 MiB cap now enforced server-side (was client-only).
+    match /forms/scans/{allPaths=**} {
+      allow read: if true;
+      allow create: if request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /forms/bugshots/{allPaths=**} {
+      allow read: if true;
+      allow create: if true;
     }
   }
 }
