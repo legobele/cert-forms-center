@@ -787,13 +787,33 @@ function tableHtml(tb, prefix, rows, sec) {
 function addTableRow(prefix, tname) {
   const tbl = $(prefix + '__tbl__' + tname);
   if (!tbl) return;
-  const cols = [...tbl.querySelector('thead tr').children].length - 1;
   // next row index = max existing + 1 (row count would collide after a ✕ delete)
   const rs = [...tbl.querySelectorAll('tbody tr [data-r]')].map(el => +el.dataset.r);
   const r = (rs.length ? Math.max(...rs) : -1) + 1;
   const tr = document.createElement('tr');
-  for (let i = 0; i < cols; i++)
-    tr.insertAdjacentHTML('beforeend', `<td><input id="${prefix}__${esc(tname)}__${r}__col${i}" data-t="${esc(tname)}" data-r="${r}" data-c="col${i}"></td>`);
+  // clone the first row's controls so the new row keeps the REAL column names
+  // (data-c) and control types (select/checkbox/date/number). The old code
+  // minted generic col0/col1 text inputs here, which corrupted the table
+  // schema in Firestore and made draft restore drop the new row's values.
+  const srcs = [...tbl.querySelectorAll('tbody tr:first-child [data-t]')];
+  if (srcs.length) {
+    for (const src of srcs) {
+      const el = src.cloneNode(true); // keeps <select> options
+      el.id = `${prefix}__${tname}__${r}__${src.dataset.c}`;
+      el.setAttribute('data-r', r);
+      if (el.type === 'checkbox') { el.checked = false; el.removeAttribute('checked'); }
+      else if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else { el.value = ''; el.removeAttribute('value'); }
+      const td = document.createElement('td');
+      td.appendChild(el);
+      tr.appendChild(td);
+    }
+  } else {
+    // degenerate: every row was ✕-deleted, nothing to copy column defs from
+    const cols = [...tbl.querySelector('thead tr').children].length - 1;
+    for (let i = 0; i < cols; i++)
+      tr.insertAdjacentHTML('beforeend', `<td><input id="${prefix}__${esc(tname)}__${r}__col${i}" data-t="${esc(tname)}" data-r="${r}" data-c="col${i}"></td>`);
+  }
   tr.insertAdjacentHTML('beforeend', `<td><button class="ghost" type="button" onclick="this.closest('tr').remove()">${t('delRow')}</button></td>`);
   tbl.querySelector('tbody').appendChild(tr);
 }
