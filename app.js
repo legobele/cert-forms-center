@@ -437,9 +437,8 @@ async function exitMode() {
 }
 
 /* ---------- view: incidents ---------- */
-let incUnsub = null;
 function renderIncidents() {
-  S.view = 'incidents'; S.incidentId = null; S.incident = null; stopDemo();
+  S.view = 'incidents'; S.incidentId = null; S.incident = null; stopDemo(); stopListeners();
   setHash('');
   const qlen = outbox().length;
   const stashed = sessionStorage.getItem('cfc_draft');
@@ -456,8 +455,7 @@ function renderIncidents() {
     <button class="warn" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button>
     <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
   if (!FB_OK) { $('inclist').innerHTML = `<p class="mut">offline</p>`; return; }
-  if (incUnsub) { try{incUnsub();}catch(e){} }
-  incUnsub = db.collection('incidents').orderBy('createdAt','desc').limit(50)
+  S.unsub.push(db.collection('incidents').orderBy('createdAt','desc').limit(50)
     .onSnapshot(snap => {
       const items = [];
       snap.forEach(d => { const x = d.data(); if (x.demo === true) return; items.push({id:d.id, ...x}); });
@@ -467,10 +465,10 @@ function renderIncidents() {
           <span class="small mut">${esc(i.date||'')} · ${esc(i.kind==='real'?t('real'):t('exercise'))} ·
           <span class="badge ${esc(i.status||'active')}">${esc(i.status==='archived'?t('archived'):t('active'))}</span></span>
         </a>`).join('') : `<p class="mut">${esc(t('noItems'))}</p>`;
-    }, () => { $('inclist').innerHTML = `<p class="mut">offline</p>`; });
+    }, () => { $('inclist').innerHTML = `<p class="mut">offline</p>`; }));
 }
 function renderNewIncident() {
-  S.view = 'newincident';
+  S.view = 'newincident'; stopListeners();
   app().innerHTML = chrome(t('newIncident'), {lock:true}) + `
   <div class="card"><h2>${esc(t('newIncident'))}</h2>
     <label class="f">${esc(t('nameEs'))}</label><input id="iname" maxlength="120">
@@ -735,7 +733,7 @@ function wireSig(canvas) {
 
 /* ---------- view: template picker ---------- */
 async function renderTemplates() {
-  S.view = 'templates';
+  S.view = 'templates'; stopListeners();
   app().innerHTML = chrome(t('chooseTemplate'), {lock:true}) + `
   <div class="card"><h2>${esc(t('chooseTemplate'))}</h2><div id="tpllist"><p class="mut">${esc(t('loading'))}</p></div>
   <button class="ghost" onclick="renderDashboard()">${esc(t('back'))}</button></div>` + footnav('incidents');
@@ -750,7 +748,7 @@ let curForm = null;
 let fillToken = 0; // guards rapid template switching: stale awaits bail out
 async function renderFill(tplId) {
   const tok = ++fillToken;
-  S.view = 'fill'; S.templateId = tplId; setHash(routeFor('form', S.incidentId, tplId));
+  S.view = 'fill'; S.templateId = tplId; stopListeners(); setHash(routeFor('form', S.incidentId, tplId));
   app().innerHTML = chrome(t('fill'), {lock:true}) + `
   <div class="card"><p class="mut">${esc(t('loading'))}</p></div>` + footnav('incidents');
   let xml;
@@ -871,7 +869,7 @@ const IMG_DATAURL_RE = /^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/;
 const safeImg = v => typeof v === 'string' && v.length < 1200000 && IMG_DATAURL_RE.test(v);
 function openSubmission(id) { S.submissionId = id; S.view = 'submission'; stopDemo(); renderSubmission(id); }
 async function renderSubmission(id) {
-  S.view = 'submission';
+  S.view = 'submission'; stopListeners();
   app().innerHTML = chrome(t('details'), {lock:true}) + `<div class="card"><p class="mut">${esc(t('loading'))}</p></div>`;
   let d;
   try { d = await db.collection('submissions').doc(id).get(); } catch(e) { d = null; }
@@ -915,7 +913,7 @@ async function renderSubmission(id) {
 
 /* ---------- view: scans ---------- */
 function renderScans(subId) {
-  S.view = 'scans'; S.scanSubId = subId || null;
+  S.view = 'scans'; S.scanSubId = subId || null; stopListeners();
   app().innerHTML = chrome(`📎 ${esc(t('scans'))}`, {lock:true}) + `
   <div class="card">
     <label class="f">${esc(t('pickFile'))}</label>
@@ -924,7 +922,7 @@ function renderScans(subId) {
     <button class="ghost" onclick="${subId ? `openSubmission('${esc(subId)}')` : 'renderDashboard()'}">${esc(t('back'))}</button>
   </div>
   <div class="card"><h3>${esc(t('scans'))}</h3><div id="scanlist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
-  db.collection('scans').where('incidentId','==',S.incidentId).orderBy('createdAt','desc').limit(30)
+  S.unsub.push(db.collection('scans').where('incidentId','==',S.incidentId).orderBy('createdAt','desc').limit(30)
     .onSnapshot(snap => {
       const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
       const el = $('scanlist'); if (!el) return;
@@ -932,7 +930,7 @@ function renderScans(subId) {
         <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b><br>
         <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
         : `<p class="mut">${esc(t('noItems'))}</p>`;
-    });
+    }));
 }
 async function uploadScan(subId) {
   const f = $('scanfile').files[0];
