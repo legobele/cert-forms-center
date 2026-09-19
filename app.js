@@ -538,7 +538,7 @@ function parseForm(xml) {
   }));
   return {
     id: form.getAttribute('id'), version: form.getAttribute('version'),
-    title, title_en,
+    title, title_en: titleEn,
     header: [...form.querySelectorAll('header > field')].map(fld),
     tables,
     footer: [...form.querySelectorAll('footer > field')].map(fld),
