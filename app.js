@@ -874,10 +874,23 @@ function addTableRow(prefix, tname) {
       tr.appendChild(td);
     }
   } else {
-    // degenerate: every row was ✕-deleted, nothing to copy column defs from
-    const cols = [...tbl.querySelector('thead tr').children].length - 1;
-    for (let i = 0; i < cols; i++)
-      tr.insertAdjacentHTML('beforeend', `<td><input id="${prefix}__${esc(tname)}__${r}__col${i}" data-t="${esc(tname)}" data-r="${r}" data-c="col${i}"></td>`);
+    // degenerate: every row was ✕-deleted, nothing to clone — rebuild from
+    // data-cols (column names + types ride on the table), not col0..colN
+    let defs = [];
+    try { defs = JSON.parse(tbl.dataset.cols || '[]'); } catch (e) {}
+    if (!defs.length) defs = [...tbl.querySelector('thead tr').children].slice(0, -1).map((_, i) => ({name: 'col' + i, type: 'text'}));
+    for (const c of defs) {
+      const cmap = {date:'date', time:'time', 'datetime-local':'datetime-local', number:'number', select:'select', checkbox:'checkbox'};
+      const kind = cmap[c.type] || 'text';
+      const id = `${prefix}__${esc(tname)}__${r}__${esc(c.name)}`;
+      const an = `aria-label="${esc((LANG === 'es' ? c.label : c.label_en) || c.name)}, ${esc(t('rowWord'))} ${r+1}"`;
+      let ctrl;
+      if (kind === 'select') ctrl = `<select id="${id}" ${an} data-t="${esc(tname)}" data-r="${r}" data-c="${esc(c.name)}"><option value=""></option>` +
+        (c.options || []).map(o => `<option value="${esc(o.value)}">${esc(LANG === 'es' ? o.label : o.label_en)}</option>`).join('') + `</select>`;
+      else if (kind === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" ${an} data-t="${esc(tname)}" data-r="${r}" data-c="${esc(c.name)}">`;
+      else ctrl = `<input type="${kind}" id="${id}" ${an} data-t="${esc(tname)}" data-r="${r}" data-c="${esc(c.name)}">`;
+      tr.insertAdjacentHTML('beforeend', `<td>${ctrl}</td>`);
+    }
   }
   tr.insertAdjacentHTML('beforeend', `<td><button class="ghost" type="button" aria-label="${esc(t('delRowAria'))}" onclick="this.closest('tr').remove()">${t('delRow')}</button></td>`);
   tbl.querySelector('tbody').appendChild(tr);
