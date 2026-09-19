@@ -66,7 +66,7 @@ const STR = {
     sign: "Firmar", clear: "Borrar firma", saved: "Guardado",
     draft: "Borrador", signed: "Firmado", print: "Imprimir",
     chooseTemplate: "Elija una plantilla", required: "obligatorio",
-    addRow: "+ Fila", delRow: "✕", team: "Equipo",
+    addRow: "+ Fila", delRow: "✕", delRowAria: "Eliminar fila", team: "Equipo",
     uploadScan: "Subir escaneo", pickFile: "Elegir archivo",
     scan403: "Sin permiso para subir (el servidor denegó el acceso). Guarde el archivo localmente por ahora.",
     scanOk: "Escaneo subido", scanErr: "No se pudo subir el escaneo.",
@@ -105,7 +105,7 @@ const STR = {
     retry: "Reintentar",
     indexErr: "Falta un índice compuesto en la consola de Firebase — solo un operador puede crearlo. Avise al coordinador.",
     orgline: "Centro de Formularios · CERT",
-    pinClearBtn: "Borrar", pinPad: "Teclado numérico",
+    pinClearBtn: "Borrar", backKey: "Retroceso", pinPad: "Teclado numérico",
     fillOut: "Diligenciar", secGeneral: "Datos generales", secClosing: "Cierre",
     offlineBanner: "Sin conexión — los datos se guardan en el dispositivo<br>y se sincronizan cuando haya red.",
     formsPending: "formularios por sincronizar", demoSub: "Datos simulados, no reales",
@@ -140,7 +140,7 @@ const STR = {
     sign: "Sign", clear: "Clear signature", saved: "Saved",
     draft: "Draft", signed: "Signed", print: "Print",
     chooseTemplate: "Pick a template", required: "required",
-    addRow: "+ Row", delRow: "✕", team: "Team",
+    addRow: "+ Row", delRow: "✕", delRowAria: "Delete row", team: "Team",
     uploadScan: "Upload scan", pickFile: "Choose file",
     scan403: "No permission to upload (server denied access). Keep the file locally for now.",
     scanOk: "Scan uploaded", scanErr: "Could not upload the scan.",
@@ -179,7 +179,7 @@ const STR = {
     retry: "Retry",
     indexErr: "A composite index is missing in the Firebase console — only an operator can create it. Tell the coordinator.",
     orgline: "CERT Forms Center",
-    pinClearBtn: "Clear", pinPad: "Numeric keypad",
+    pinClearBtn: "Clear", backKey: "Backspace", pinPad: "Numeric keypad",
     fillOut: "Fill out", secGeneral: "General info", secClosing: "Closing",
     offlineBanner: "Offline — data stays on this device<br>and syncs when a network returns.",
     formsPending: "forms pending sync", demoSub: "Simulated data, not real",
@@ -464,7 +464,7 @@ function renderPin() {
       <button type="button" onclick="pinKey('1')">1</button><button type="button" onclick="pinKey('2')">2</button><button type="button" onclick="pinKey('3')">3</button>
       <button type="button" onclick="pinKey('4')">4</button><button type="button" onclick="pinKey('5')">5</button><button type="button" onclick="pinKey('6')">6</button>
       <button type="button" onclick="pinKey('7')">7</button><button type="button" onclick="pinKey('8')">8</button><button type="button" onclick="pinKey('9')">9</button>
-      <button type="button" class="fn" onclick="pinClear()">${esc(t('pinClearBtn'))}</button><button type="button" onclick="pinKey('0')">0</button><button type="button" class="fn" onclick="pinBack()">&#9003;</button>
+      <button type="button" class="fn" onclick="pinClear()">${esc(t('pinClearBtn'))}</button><button type="button" onclick="pinKey('0')">0</button><button type="button" class="fn" aria-label="${esc(t('backKey'))}" onclick="pinBack()">&#9003;</button>
     </div>
     <button class="warn" onclick="submitPin()">${esc(t('pinBtn'))}</button>
     <button class="sec" onclick="enterDemo()">${esc(t('demoLive'))}</button>
@@ -838,7 +838,7 @@ function tableHtml(tb, prefix, rows, sec) {
         ctrl = `<input type="${cmap[c.type]||'text'}" id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`; }
       body += `<td>${ctrl}</td>`;
     }
-    body += `<td><button class="ghost" type="button" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
+    body += `<td><button class="ghost" type="button" aria-label="${esc(t('delRowAria'))}" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
   }
   return `<div class="fsection"><span class="section-tag">${sec?`<span class="n">${esc(sec)}</span>`:''}${esc(LANG==='es'?tb.label:tb.label_en)}</span>
   <table class="form" id="${prefix}__tbl__${esc(tb.name)}" data-cols="${esc(JSON.stringify(tb.columns))}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
@@ -874,7 +874,7 @@ function addTableRow(prefix, tname) {
     for (let i = 0; i < cols; i++)
       tr.insertAdjacentHTML('beforeend', `<td><input id="${prefix}__${esc(tname)}__${r}__col${i}" data-t="${esc(tname)}" data-r="${r}" data-c="col${i}"></td>`);
   }
-  tr.insertAdjacentHTML('beforeend', `<td><button class="ghost" type="button" onclick="this.closest('tr').remove()">${t('delRow')}</button></td>`);
+  tr.insertAdjacentHTML('beforeend', `<td><button class="ghost" type="button" aria-label="${esc(t('delRowAria'))}" onclick="this.closest('tr').remove()">${t('delRow')}</button></td>`);
   tbl.querySelector('tbody').appendChild(tr);
 }
 function collectValues(prefix, form) {
