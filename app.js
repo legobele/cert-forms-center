@@ -1449,10 +1449,15 @@ function resumePending() {
   if (p.type === 'form') openFormRoute(p.incidentId, p.templateId);
   else openIncidentRoute(p.incidentId);
 }
+/* Firestore limita los ids de documento a 1500 bytes y prohíbe '/':
+   cualquier otro id es un enlace basura — se reporta como «Enlace no válido»,
+   nunca como «Sin conexión» (el SDK lanzaría y el catch lo mapearía mal). */
+const validDocId = id => typeof id === 'string' && id.length > 0 && id.length <= 1500 && !id.includes('/');
 async function openIncidentRoute(id) {
   if (id === DEMO_ORG_ID) { enterDemo(); return; } // demo org -> live demo view (quarantine intact)
   if (!unlocked()) { pendingRoute = { type: 'incident', incidentId: id }; renderPin(); return; }
   if (!S.mode) { pendingRoute = { type: 'incident', incidentId: id }; renderMode(); return; }
+  if (!validDocId(id)) { renderRouteError('hash'); return; }
   setHash(routeFor('incident', id));
   if (S.view === 'dashboard' && S.incidentId === id) return; // already here (back/forward)
   if (!FB_OK) { renderRouteError('offline'); return; }
@@ -1466,6 +1471,7 @@ async function openFormRoute(incidentId, templateId) {
   if (incidentId === DEMO_ORG_ID) { enterDemo(); return; }
   if (!unlocked()) { pendingRoute = { type: 'form', incidentId, templateId }; renderPin(); return; }
   if (!S.mode) { pendingRoute = { type: 'form', incidentId, templateId }; renderMode(); return; }
+  if (!validDocId(incidentId)) { renderRouteError('hash'); return; }
   setHash(routeFor('form', incidentId, templateId));
   if (S.view === 'fill' && S.incidentId === incidentId && S.templateId === templateId) return;
   if (!FB_OK) { renderRouteError('offline'); return; }
