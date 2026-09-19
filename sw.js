@@ -1,5 +1,6 @@
 /* CERT Forms Center service worker — offline app shell + form templates */
-const CACHE = 'cfc-v2';
+const VERSION = '20260919-war1'; // bump on each deploy; activate purges older caches
+const CACHE = 'cfc-' + VERSION;
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './forms/manifest.json',
   './forms/damage_assessment.xml', './forms/personnel_signin.xml',
@@ -16,6 +17,13 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  // manifest: network-first so template-list updates ship promptly; cache fallback offline
+  if (url.pathname.endsWith('/forms/manifest.json')) {
+    e.respondWith(fetch(e.request).then(r => {
+      const cp = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); return r;
+    }).catch(() => caches.match(e.request)));
+    return;
+  }
   // form templates: cache-first (repo copies are authoritative fallback)
   if (url.pathname.includes('/forms/')) {
     e.respondWith(caches.match(e.request).then(hit =>
