@@ -196,6 +196,7 @@ function toast(msg) {
   document.querySelectorAll('.toast').forEach(e => e.remove());
   const d = document.createElement('div');
   d.className = 'toast'; d.textContent = msg;
+  d.setAttribute('role', 'status'); // los avisos se anuncian en lectores de pantalla
   document.body.appendChild(d);
   setTimeout(() => d.remove(), 3200);
 }
@@ -435,7 +436,7 @@ function footnav(active) {
     ['demo', t('demo'), "go('demo')"],
   ];
   return `<footer class="foot">` + items.map(([v, l, fn]) =>
-    `<button class="${active===v?'on':''}" onclick="${fn}">${l}</button>`).join('') + `</footer>`;
+    `<button class="${active===v?'on':''}"${active===v?' aria-current="page"':''} onclick="${fn}">${l}</button>`).join('') + `</footer>`;
 }
 /* La navegación inferior puede pedir la demo: debe pasar por enterDemo()
    (oyentes + simulador), no por render() a secas. */
@@ -880,10 +881,13 @@ function collectValues(prefix, form) {
   const values = {}, tables = {};
   const reqMissing = [];
   const tableRows = {}; // tn -> Map(data-r -> row) in DOM order; compacted below
+  // los <input type=number> se persisten como número, no como string;
+  // vacío sigue siendo vacío (nunca 0 por coerción)
+  const numVal = el => (el.type === 'number' && el.value !== '' ? +el.value : el.value);
   // id'd controls plus any id-less [data-t] row inputs (belt and braces)
   document.querySelectorAll(`[id^="${prefix}__"],[data-t]`).forEach(el => {
     if (el.dataset.f) {
-      const v = el.type === 'checkbox' ? el.checked : (el.tagName === 'CANVAS' ? sigData[el.id] || '' : el.value);
+      const v = el.type === 'checkbox' ? el.checked : (el.tagName === 'CANVAS' ? sigData[el.id] || '' : numVal(el));
       values[el.dataset.f] = v;
     } else if (el.dataset.t) {
       const tn = el.dataset.t, r = el.dataset.r, c = el.dataset.c || el.closest('td').cellIndex;
@@ -893,12 +897,14 @@ function collectValues(prefix, form) {
       if (!m) m = tableRows[tn] = new Map();
       let row = m.get(r);
       if (!row) { row = {}; m.set(r, row); }
-      row[typeof c === 'string' ? c : 'col' + c] = el.type === 'checkbox' ? el.checked : el.value;
+      row[typeof c === 'string' ? c : 'col' + c] = el.type === 'checkbox' ? el.checked : numVal(el);
     }
   });
   for (const tn of Object.keys(tableRows)) tables[tn] = [...tableRows[tn].values()];
   const allFields = [...form.header, ...form.footer];
-  for (const f of allFields) if (f.required && !values[f.name]) reqMissing.push(LBL(f));
+  // 0 cuenta como diligenciado (antes era el string "0", truthy): evita
+  // marcar como faltante un campo numérico obligatorio con valor cero
+  for (const f of allFields) if (f.required && !values[f.name] && values[f.name] !== 0) reqMissing.push(LBL(f));
   return {values, tables, reqMissing};
 }
 
