@@ -1057,7 +1057,7 @@ function renderScans(subId) {
 }
 async function uploadScan(subId) {
   const f = $('scanfile').files[0];
-  if (!f) return;
+  if (!f) { toast(t('pickFile')); return; }
   // 1. validate before anything touches the network
   const ext = (f.name.split('.').pop() || '').toLowerCase();
   const okType = f.type.startsWith('image/') || f.type === 'application/pdf' ||
