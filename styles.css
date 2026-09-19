@@ -312,7 +312,13 @@ footer.foot button.on{background:var(--ink);color:var(--amber)}
   .kv dt{color:#5c5340}
   .kv .pv{border-bottom:1px solid #999;min-height:1.4em;padding:2px 0}
   table.form tr,.signbox,.kv{break-inside:avoid;page-break-inside:avoid}
+  /* la firma impresa nunca se parte */
+  .print-area img{break-inside:avoid;page-break-inside:avoid}
+  /* el encabezado de sección va pegado a su contenido, nunca huérfano al pie */
+  h3{break-after:avoid;page-break-after:avoid}
 }
+/* márgenes de papel reales, no los del navegador */
+@page{margin:12mm}
 .print-area .pv{border-bottom:1px solid #999;min-height:1.2em;padding:2px 0}
 
 /* ---------- responsive ---------- */
