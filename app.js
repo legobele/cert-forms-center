@@ -582,7 +582,8 @@ function tableHtml(tb, prefix, rows, sec) {
       if (c.type === 'select') ctrl = `<select id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}"><option value=""></option>` +
         c.options.map(o => `<option value="${esc(o.value)}" ${o.value===v?'selected':''}>${esc(LANG==='es'?o.label:o.label_en)}</option>`).join('') + `</select>`;
       else if (c.type === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" ${v?'checked':''}>`;
-      else ctrl = `<input id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`;
+      else { const cmap = {date:'date', time:'time', datetime:'datetime-local', number:'number'};
+        ctrl = `<input type="${cmap[c.type]||'text'}" id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`; }
       body += `<td>${ctrl}</td>`;
     }
     body += `<td><button class="ghost" type="button" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
