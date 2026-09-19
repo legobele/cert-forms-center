@@ -570,7 +570,7 @@ function fieldInput(f, prefix, val) {
   return `<div class="field"><label class="f" for="${id}">${LBL(f)}${req}</label>${ctrl}</div>`;
 }
 function tableHtml(tb, prefix, rows, sec) {
-  const n = Math.max(rows ? rows.length : 0, 3);
+  const n = Math.max(rows ? rows.length : 0, tb.min_rows || 3);
   let head = tb.columns.map(c => `<th>${LBL(c)}</th>`).join('') + `<th></th>`;
   let body = '';
   for (let r = 0; r < n; r++) {
