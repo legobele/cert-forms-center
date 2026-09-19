@@ -53,6 +53,7 @@ const STR = {
     scanOk: "Escaneo subido", scanErr: "No se pudo subir el escaneo.",
     offlineQueued: "Sin conexión: guardado en la cola, se sincronizará.",
     outboxSynced: "Cola sincronizada.",
+    outboxFull: "Almacenamiento lleno: no se pudo guardar en la cola. Libere espacio e inténtelo de nuevo.",
     lock: "Bloquear", lang: "EN", exit: "Salir",
     teams: "Equipos", submissions: "Formularios", recent: "Recientes",
     submittedBy: "Por", at: "el", noItems: "Nada aquí todavía.",
@@ -103,6 +104,7 @@ const STR = {
     scanOk: "Scan uploaded", scanErr: "Could not upload the scan.",
     offlineQueued: "Offline: saved to queue, will sync.",
     outboxSynced: "Queue synced.",
+    outboxFull: "Storage full: could not save to the queue. Free space and try again.",
     lock: "Lock", lang: "ES", exit: "Exit",
     teams: "Teams", submissions: "Submissions", recent: "Recent",
     submittedBy: "By", at: "at", noItems: "Nothing here yet.",
@@ -178,10 +180,13 @@ async function audit(action, collection, docId) {
 /* ---------- offline outbox ---------- */
 const OUTBOX_KEY = 'cfc_outbox_v1';
 const outbox = () => { try { return JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); } catch(e){ return []; } };
-const setOutbox = q => localStorage.setItem(OUTBOX_KEY, JSON.stringify(q));
+function setOutbox(q) {
+  try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(q)); return true; }
+  catch (e) { toast(t('outboxFull')); return false; } // quota exceeded: loud, not silent
+}
 function queueWrite(coll, docId, data) {
   const q = outbox(); q.push({coll, docId, data, queuedAt: Date.now()});
-  setOutbox(q); toast(t('offlineQueued'));
+  if (setOutbox(q)) toast(t('offlineQueued'));
 }
 async function writeDoc(coll, docId, data) {
   // writes with explicit demo flag default; returns id. Queues offline.
