@@ -26,6 +26,9 @@ const STR = {
     pinBad: "PIN incorrecto",
     pinLocked: "Demasiados intentos. Intente de nuevo en {s} s.",
     pinIncomplete: "Ingrese los 6 dígitos del PIN.",
+    draftStashed: "Bloqueo automático: borrador guardado en este dispositivo.",
+    draftFound: "Hay un borrador sin guardar de antes del bloqueo.",
+    restore: "Restaurar", discard: "Descartar",
     chooseMode: "¿Cómo va a usar esto?",
     kiosk: "Quiosco", kioskSub: "Sesión compartida en este dispositivo",
     personal: "Personal", personalSub: "Entrar con su cuenta",
@@ -72,6 +75,9 @@ const STR = {
     pinBad: "Wrong PIN",
     pinLocked: "Too many attempts. Try again in {s} s.",
     pinIncomplete: "Enter all 6 PIN digits.",
+    draftStashed: "Auto-lock: draft saved on this device.",
+    draftFound: "There's an unsent draft from before the lock.",
+    restore: "Restore", discard: "Discard",
     chooseMode: "How will you use this?",
     kiosk: "Kiosk", kioskSub: "Shared session on this device",
     personal: "Personal", personalSub: "Sign in with your account",
@@ -208,11 +214,27 @@ function pokeLock() {
   lockTimer = setTimeout(doLock, LOCK_MIN * 60 * 1000);
 }
 function doLock() {
+  stashDraft(); // never vaporize an in-progress form silently
   sessionStorage.removeItem('cfc_unlocked');
   sessionStorage.removeItem('cfc_kiosk');
   S.mode = null; S.actor = null; stopDemo(); stopListeners();
   pendingRoute = null; setHash('');
   renderPin();
+}
+/* Snapshot an in-progress fill-form draft (incl. signature strokes captured
+   so far) so the auto-lock / tab-hide doesn't destroy user work. */
+function stashDraft() {
+  try {
+    if (S.view === 'fill' && curForm && S.templateId) {
+      const snap = collectValues('fld', curForm);
+      sessionStorage.setItem('cfc_draft', JSON.stringify({
+        templateId: S.templateId, incidentId: S.incidentId,
+        team: $('sub-team') ? $('sub-team').value : '',
+        values: snap.values, tables: snap.tables, at: Date.now()
+      }));
+      toast(t('draftStashed'));
+    }
+  } catch (e) { /* quota or no draft — locking must never fail */ }
 }
 ['pointerdown','keydown','touchstart'].forEach(ev =>
   window.addEventListener(ev, pokeLock, {passive: true}));
@@ -377,12 +399,16 @@ function renderIncidents() {
   S.view = 'incidents'; S.incidentId = null; S.incident = null; stopDemo();
   setHash('');
   const qlen = outbox().length;
+  const stashed = sessionStorage.getItem('cfc_draft');
   app().innerHTML = chrome(`${esc(t('appName'))} · ${esc(S.actor||'')}`, {lock:true}) + `
   <div class="card">
     <div class="masthead">
       <div class="orgline">Centro de Formularios · CERT</div>
       <h2>${esc(t('incidents'))}</h2>
     </div>
+    ${stashed ? `<div class="draft-banner"><p>⚠️ ${esc(t('draftFound'))}</p>
+      <button class="sec small" onclick="restoreStashedDraft()">${esc(t('restore'))}</button>
+      <button class="ghost small" onclick="discardStashedDraft()">${esc(t('discard'))}</button></div>` : ''}
     ${qlen ? `<div class="sync-strip"><span>&#9673; ${qlen} ${esc(LANG==='es'?'formularios por sincronizar':'forms pending sync')}</span><span>&rarr;</span></div>` : ''}
     <button class="warn" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button>
     <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
@@ -734,6 +760,17 @@ async function renderFillKeepDraft() {
   await renderFill(S.templateId);
   if (draft) restoreDraft(draft, team);
 }
+/* Restore a draft stashed by the auto-lock (see stashDraft). */
+async function restoreStashedDraft() {
+  let d = null;
+  try { d = JSON.parse(sessionStorage.getItem('cfc_draft')); } catch (e) {}
+  sessionStorage.removeItem('cfc_draft');
+  if (!d || !d.templateId) { renderIncidents(); return; }
+  if (d.incidentId) S.incidentId = d.incidentId;
+  await renderFill(d.templateId);
+  if (curForm) restoreDraft({values: d.values || {}, tables: d.tables || {}}, d.team || '');
+}
+function discardStashedDraft() { sessionStorage.removeItem('cfc_draft'); renderIncidents(); }
 function restoreDraft(draft, team) {
   if (team != null && $('sub-team')) $('sub-team').value = team;
   const values = draft.values || {};
@@ -1108,4 +1145,4 @@ Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock
   startKiosk, doLogin, doRegister, exitMode, go, renderIncidents, renderNewIncident,
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
   clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
-  enterDemo, exitDemo, exitRouteError });
+  enterDemo, exitDemo, exitRouteError, restoreStashedDraft, discardStashedDraft });
