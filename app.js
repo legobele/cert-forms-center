@@ -936,7 +936,7 @@ async function renderSubmission(id) {
     return `<div class="kv"><dt><b>${esc(k)}</b></dt><dd class="pv">${disp}</dd></div>`;
   }).join('');
   const trows = Object.entries(s.tables || {}).map(([tn, arr]) => {
-    if (!arr || !arr.length) return '';
+    if (!Array.isArray(arr) || !arr.length) return '';
     const cols = [...new Set(arr.flatMap(r => Object.keys(r || {})))];
     return `<h3>${esc(tn)}</h3><table class="form"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
       arr.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('') + `</tbody></table>`;
