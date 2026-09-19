@@ -10,7 +10,9 @@
   --ink:        #1b1712;  /* tinta */
   --ink-soft:   #5c5340;  /* tinta apagada (etiquetas) */
   --red:        #b23a2c;  /* rojo seguridad / sello */
+  --red-bright: #e08070;  /* rojo claro para TEXTO sobre tinta (6.1:1 sobre #211b12) */
   --red-deep:   #8a2a20;
+  --ink-soft-dk:#a3946f;  /* tinta apagada para texto sobre fondos oscuros (6.0:1) */
   --red-wash:   #f6e4dc;
   --amber:      #cf8a1f;  /* ámbar (gráficos, bordes, sobre tinta) */
   --amber-text:  #7a5210;  /* ámbar oscurecido para TEXTO sobre papel (6.1:1) */
@@ -59,7 +61,7 @@ header.top .tag{
   display:inline-block;
   font-family:var(--f-head);font-weight:900;text-transform:uppercase;
   letter-spacing:.22em;line-height:1;font-size:.72rem;
-  padding:.45em .8em .35em;color:var(--red);
+  padding:.45em .8em .35em;color:var(--red-bright);
   border:3px double currentColor;border-radius:2px;
   transform:rotate(-6deg);opacity:.95;background:rgba(178,58,44,.12);
 }
@@ -180,6 +182,7 @@ button.warn{background:var(--red);border-color:var(--red-deep);color:#fff}
 button.ghost{background:none;color:var(--ink);border:0;box-shadow:none;padding:10px 8px;text-decoration:underline;min-height:48px}
 header.top button.ghost{color:var(--paper);text-decoration:none;font-size:.85rem}
 button.modebtn{width:100%;text-align:left;padding:18px;font-size:1.05rem;display:block}
+button.modebtn .mut{color:var(--ink-soft-dk)} /* descripción legible sobre fondo tinta */
 button.modebtn .small{letter-spacing:.04em}
 
 /* ---------- insignias → sellos ---------- */
