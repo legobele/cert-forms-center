@@ -98,6 +98,8 @@ const STR = {
     noAuth: "Sesión expirada, vuelva a entrar.",
     viewForm: "Ver", fieldValues: "Valores", loading: "Cargando…",
     listenErr: "No se pudo cargar la lista. Revise su conexión.",
+    retry: "Reintentar",
+    indexErr: "Falta un índice compuesto en la consola de Firebase — solo un operador puede crearlo. Avise al coordinador.",
   },
   en: {
     appName: "CERT Forms Center",
@@ -161,6 +163,8 @@ const STR = {
     noAuth: "Session expired, sign in again.",
     viewForm: "View", fieldValues: "Values", loading: "Loading…",
     listenErr: "Could not load the list. Check your connection.",
+    retry: "Retry",
+    indexErr: "A composite index is missing in the Firebase console — only an operator can create it. Tell the coordinator.",
   }
 };
 let LANG = localStorage.getItem('cfc_lang') || 'es';
@@ -242,9 +246,20 @@ const S = {
   tplCache: {}, unsub: [], demoTimer: null,
 };
 function stopListeners() { S.unsub.forEach(u => { try { u(); } catch(e){} }); S.unsub = []; }
-/* onSnapshot error handler: replace the eternal "Cargando…" with an ES error. */
-const snapErr = elId => () => {
-  const el = $(elId); if (el) el.innerHTML = `<p class="mut">${esc(t('listenErr'))}</p>`;
+/* onSnapshot error handler: replace the eternal "Cargando…" with an ES error + retry.
+   failed-precondition = missing composite index (console-operator action), so say so
+   instead of blaming the connection; the retry button covers transient failures and
+   the case where the operator just created the missing index. */
+const RETRY_VIEW = { inclist:'renderIncidents', 'dash-teams':'renderDashboard', 'dash-subs':'renderDashboard',
+  'dash-scans':'renderDashboard', scanlist:'renderScansList', 'demo-teams':'renderDemoView',
+  'demo-subs':'renderDemoView', 'demo-scans':'renderDemoView' };
+function renderScansList() { renderScans(S.scanSubId); }
+function retryList(elId) { const fn = RETRY_VIEW[elId] && window[RETRY_VIEW[elId]]; if (fn) fn(); }
+const snapErr = elId => err => {
+  const el = $(elId); if (!el) return;
+  const missing = err && /precondition/i.test(String(err.code || err));
+  const msg = missing ? t('indexErr') : t('listenErr');
+  el.innerHTML = `<p class="mut small">${esc(msg)}</p><button class="ghost" onclick="retryList('${esc(elId)}')">${esc(t('retry'))}</button>`;
 };
 function stopDemo() { if (S.demoTimer) { clearInterval(S.demoTimer); S.demoTimer = null; } }
 
@@ -820,15 +835,24 @@ function addTableRow(prefix, tname) {
 function collectValues(prefix, form) {
   const values = {}, tables = {};
   const reqMissing = [];
+  const tableRows = {}; // tn -> Map(data-r -> row) in DOM order; compacted below
   // id'd controls plus any id-less [data-t] row inputs (belt and braces)
   document.querySelectorAll(`[id^="${prefix}__"],[data-t]`).forEach(el => {
     if (el.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : (el.tagName === 'CANVAS' ? sigData[el.id] || '' : el.value);
       values[el.dataset.f] = v;
     } else if (el.dataset.t) {
-      const tn = el.dataset.t, r = +el.dataset.r, c = el.dataset.c || el.closest('td').cellIndex;
-      tables[tn] = tables[tn] || [];
-      tables[tn][r] = tables[tn][r] || {};
+      const tn = el.dataset.t, r = el.dataset.r, c = el.dataset.c || el.closest('td').cellIndex;
+      // Rows keyed by data-r then compacted in DOM order: deleting a middle
+      // row no longer leaves null holes that crash renderSubmission.
+      let m = tableRows[tn];
+      if (!m) m = tableRows[tn] = new Map();
+      let row = m.get(r);
+      if (!row) { row = {}; m.set(r, row); }
+      row[typeof c === 'string' ? c : 'col' + c] = el.type === 'checkbox' ? el.checked : el.value;
+    }
+  });
+  for (const tn of Object.keys(tableRows)) tables[tn] = [...tableRows[tn].values()];
       tables[tn][r][typeof c === 'string' ? c : 'col' + c] = el.type === 'checkbox' ? el.checked : el.value;
     }
   });
@@ -1364,4 +1388,5 @@ Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock
   startKiosk, doLogin, doRegister, exitMode, go, renderIncidents, renderNewIncident,
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
   clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
-  enterDemo, exitDemo, exitRouteError, restoreStashedDraft, discardStashedDraft, once });
+  enterDemo, exitDemo, exitRouteError, restoreStashedDraft, discardStashedDraft, once,
+  renderDemoView, renderScansList, retryList });
