@@ -272,7 +272,7 @@ function stashDraft() {
     }
   } catch (e) { /* quota or no draft — locking must never fail */ }
 }
-['pointerdown','keydown','touchstart'].forEach(ev =>
+['pointerdown','keydown','touchstart','wheel'].forEach(ev =>
   window.addEventListener(ev, pokeLock, {passive: true}));
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && unlocked()) doLock();
