@@ -85,6 +85,9 @@ const STR = {
     routeErrOfflineSub: "No se pudo cargar. Revise su conexión e inténtelo de nuevo.",
     routeErrSub: "Revise el enlace e inténtelo de nuevo.", exit: "Salir",
     teams: "Equipos", submissions: "Formularios", recent: "Recientes",
+    teamName: "Nombre del equipo", teamStatus: "Estado inicial",
+    teamNameReq: "Escriba el nombre del equipo.", teamAdded: "Equipo registrado.",
+    addTeam: "＋ Registrar equipo",
     submittedBy: "Por", at: "el", noItems: "Nada aquí todavía.",
     demoLive: "VER DEMO EN VIVO", demoBanner: "⚠ DEMO — datos simulados, no reales",
     demoView: "Vista demo en vivo", simOn: "Simulador activo: actividad demo cada ~25 s",
@@ -153,6 +156,9 @@ const STR = {
     routeErrOfflineSub: "Could not load. Check your connection and try again.",
     routeErrSub: "Check the link and try again.", exit: "Exit",
     teams: "Teams", submissions: "Submissions", recent: "Recent",
+    teamName: "Team name", teamStatus: "Initial status",
+    teamNameReq: "Enter the team name.", teamAdded: "Team registered.",
+    addTeam: "+ Register team",
     submittedBy: "By", at: "at", noItems: "Nothing here yet.",
     demoLive: "VIEW LIVE DEMO", demoBanner: "⚠ DEMO — simulated data, not real",
     demoView: "Live demo view", simOn: "Simulator on: demo activity every ~25 s",
@@ -439,11 +445,11 @@ function renderPin() {
     </div>
     <div class="pin-label">${esc(t('pinTitle'))}</div>
     <div class="pinrow" id="pinrow">${'<input inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="off">'.repeat(6)}</div>
-    <div class="keypad" role="group" aria-label="Teclado num&eacute;rico">
+    <div class="keypad" role="group" aria-label="${esc(t('pinPad'))}">
       <button type="button" onclick="pinKey('1')">1</button><button type="button" onclick="pinKey('2')">2</button><button type="button" onclick="pinKey('3')">3</button>
       <button type="button" onclick="pinKey('4')">4</button><button type="button" onclick="pinKey('5')">5</button><button type="button" onclick="pinKey('6')">6</button>
       <button type="button" onclick="pinKey('7')">7</button><button type="button" onclick="pinKey('8')">8</button><button type="button" onclick="pinKey('9')">9</button>
-      <button type="button" class="fn" onclick="pinClear()">${esc(LANG==='es'?'Borrar':'Clear')}</button><button type="button" onclick="pinKey('0')">0</button><button type="button" class="fn" onclick="pinBack()">&#9003;</button>
+      <button type="button" class="fn" onclick="pinClear()">${esc(t('pinClearBtn'))}</button><button type="button" onclick="pinKey('0')">0</button><button type="button" class="fn" onclick="pinBack()">&#9003;</button>
     </div>
     <button class="warn" onclick="submitPin()">${esc(t('pinBtn'))}</button>
     <button class="sec" onclick="enterDemo()">${esc(t('demoLive'))}</button>
