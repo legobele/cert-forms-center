@@ -615,7 +615,8 @@ function renderDashboard() {
     // live: teams subcollection
     S.unsub.push(incRef.collection('teams').onSnapshot(snap => {
       const el = $('dash-teams'); if (!el) return;
-      const rows = []; snap.forEach(x => rows.push({id:x.id, ...x.data()}));
+      // skip demo:true like the submissions/scans lists below — demo teams stay in the demo view
+      const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
       el.innerHTML = rows.length ? rows.map(tm => `
         <div class="kv" style="border-bottom:1px solid var(--line);padding:6px 0">
           <dt><b>${esc(tm.name || tm.id)}</b></dt><dd>${esc(tm.status || '—')}</dd>
