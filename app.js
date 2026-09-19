@@ -33,6 +33,7 @@ const STR = {
     kiosk: "Quiosco", kioskSub: "Sesión compartida en este dispositivo",
     personal: "Personal", personalSub: "Entrar con su cuenta",
     who: "¿Quién está usando esto?", namePh: "Nombre (p. ej. Giulia)",
+    anonUser: "Anónimo",
     start: "Empezar", login: "Entrar", register: "Crear cuenta",
     email: "Correo", pass: "Contraseña",
     authOff: "Auth aún no habilitado. Pida al admin que active el proveedor Email/Password en la consola de Firebase.",
@@ -82,6 +83,7 @@ const STR = {
     kiosk: "Kiosk", kioskSub: "Shared session on this device",
     personal: "Personal", personalSub: "Sign in with your account",
     who: "Who is using this?", namePh: "Name (e.g. Giulia)",
+    anonUser: "Anonymous",
     start: "Start", login: "Sign in", register: "Create account",
     email: "Email", pass: "Password",
     authOff: "Auth not enabled yet. Ask the admin to enable the Email/Password provider in the Firebase console.",
@@ -345,14 +347,15 @@ function modeKiosk() {
   app().innerHTML = chrome(t('appName'), {lock:true}) + `
   <div class="card"><h2>${esc(t('who'))}</h2>
     <label class="f">${esc(t('actorName'))}</label>
-    <input id="kname" value="Giulia" maxlength="60">
+    <input id="kname" maxlength="60" placeholder="${esc(t('namePh'))}">
     <button onclick="startKiosk()">${esc(t('start'))}</button>
     <button class="ghost" onclick="renderMode()">${esc(t('back'))}</button>
   </div>`;
   $('kname').focus();
 }
 function startKiosk() {
-  const name = ($('kname').value || 'Giulia').trim() || 'Giulia';
+  // never silently attribute to a default person: empty -> "Anónimo"
+  const name = ($('kname').value || '').trim() || t('anonUser');
   S.mode = 'kiosk'; S.actor = name; sessionStorage.setItem('cfc_kiosk', name);
   audit('mode.kiosk', 'sessions', null).catch(()=>{});
   resumePending();
