@@ -156,6 +156,7 @@ try {
   firebase.initializeApp(FB_CONFIG);
   db = firebase.firestore(); auth = firebase.auth(); storage = firebase.storage();
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+  auth.onAuthStateChanged(restorePersonalSession);
   FB_OK = true;
 } catch (e) { console.warn('Firebase init failed', e); }
 
@@ -219,6 +220,7 @@ function doLock() {
   stashDraft(); // never vaporize an in-progress form silently
   sessionStorage.removeItem('cfc_unlocked');
   sessionStorage.removeItem('cfc_kiosk');
+  sessionStorage.removeItem('cfc_mode');
   S.mode = null; S.actor = null; stopDemo(); stopListeners();
   pendingRoute = null; setHash('');
   renderPin();
@@ -357,6 +359,7 @@ function startKiosk() {
   // never silently attribute to a default person: empty -> "Anónimo"
   const name = ($('kname').value || '').trim() || t('anonUser');
   S.mode = 'kiosk'; S.actor = name; sessionStorage.setItem('cfc_kiosk', name);
+  sessionStorage.setItem('cfc_mode', 'kiosk');
   audit('mode.kiosk', 'sessions', null).catch(()=>{});
   resumePending();
 }
@@ -371,10 +374,25 @@ function modePersonal() {
     <button class="ghost" onclick="renderMode()">${esc(t('back'))}</button>
   </div>`;
 }
+/* Personal sessions survive reload: Firebase Auth persists (LOCAL); on boot
+   we pick the signed-in user back up if the device is still PIN-unlocked. */
+function restorePersonalSession(u) {
+  if (u && unlocked() && !S.mode && (S.view === 'mode' || S.view === 'pin')) {
+    S.mode = 'personal'; S.actor = u.email + ' (' + u.uid + ')'; S.uid = u.uid;
+    sessionStorage.setItem('cfc_mode', 'personal');
+    resumePending();
+  } else if (!u && S.mode === 'personal') {
+    // signed out elsewhere: drop the stale personal session
+    S.mode = null; S.actor = null; S.uid = null;
+    sessionStorage.removeItem('cfc_mode');
+    if (S.view !== 'pin') renderMode();
+  }
+}
 async function doLogin() {
   try {
     const u = await auth.signInWithEmailAndPassword($('pemail').value.trim(), $('ppass').value);
     S.mode = 'personal'; S.actor = u.user.email + ' (' + u.user.uid + ')'; S.uid = u.user.uid;
+    sessionStorage.setItem('cfc_mode', 'personal');
     audit('auth.login', 'sessions', u.user.uid).catch(()=>{});
     resumePending();
   } catch (e) {
@@ -385,6 +403,7 @@ async function doRegister() {
   try {
     const u = await auth.createUserWithEmailAndPassword($('pemail').value.trim(), $('ppass').value);
     S.mode = 'personal'; S.actor = u.user.email + ' (' + u.user.uid + ')'; S.uid = u.user.uid;
+    sessionStorage.setItem('cfc_mode', 'personal');
     audit('auth.register', 'sessions', u.user.uid).catch(()=>{});
     resumePending();
   } catch (e) {
@@ -393,6 +412,7 @@ async function doRegister() {
 }
 async function exitMode() {
   if (S.mode === 'personal') { try { await auth.signOut(); } catch(e){} }
+  sessionStorage.removeItem('cfc_kiosk'); sessionStorage.removeItem('cfc_mode');
   S.mode = null; S.actor = null; S.uid = null; stopDemo(); renderMode();
 }
 
