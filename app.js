@@ -58,7 +58,7 @@ const STR = {
     authOff: "Auth aún no habilitado. Pida al admin que active el proveedor Email/Password en la consola de Firebase.",
     authErr: "No se pudo entrar. Revise correo y contraseña.",
     incidents: "Incidentes", templates: "Plantillas", scans: "Escaneos", demo: "Demo",
-    newIncident: "Nuevo incidente", nameEs: "Nombre del incidente",
+    newIncident: "Nuevo incidente", nameEs: "Nombre del incidente", nameReq: "Escriba un nombre para el incidente.",
     date: "Fecha", kind: "Tipo", exercise: "Ejercicio", real: "Real",
     status: "Estado", active: "Activo", archived: "Archivado",
     create: "Crear", cancel: "Cancelar", back: "Atrás",
@@ -132,7 +132,7 @@ const STR = {
     authOff: "Auth not enabled yet. Ask the admin to enable the Email/Password provider in the Firebase console.",
     authErr: "Could not sign in. Check email and password.",
     incidents: "Incidents", templates: "Templates", scans: "Scans", demo: "Demo",
-    newIncident: "New incident", nameEs: "Incident name",
+    newIncident: "New incident", nameEs: "Incident name", nameReq: "Enter an incident name.",
     date: "Date", kind: "Type", exercise: "Exercise", real: "Real",
     status: "Status", active: "Active", archived: "Archived",
     create: "Create", cancel: "Cancel", back: "Back",
@@ -641,7 +641,7 @@ function renderNewIncidentKeep() {
   if (keep.kind) $('ikind').value = keep.kind;
 }
 async function createIncident() {
-  const name = $('iname').value.trim(); if (!name) { toast(t('nameEs')); return; }
+  const name = $('iname').value.trim(); if (!name) { toast(t('nameReq')); return; }
   const data = { name_es: name, date: $('idate').value || '2026-09-20',
     kind: $('ikind').value, status: 'active', demo: false,
     actor: S.actor, createdAt: ts() };
