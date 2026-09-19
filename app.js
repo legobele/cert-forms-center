@@ -804,12 +804,32 @@ function collectValues(prefix, form) {
 
 /* ---------- signature pad ---------- */
 const sigData = {};
+let sigResizeBound = false;
+function bindSigResize() { // one global listener: refit live signature canvases on resize/rotation
+  if (sigResizeBound) return; sigResizeBound = true;
+  const refit = () => document.querySelectorAll('canvas.sig').forEach(c => { if (c._refit) c._refit(); });
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', () => setTimeout(refit, 120));
+}
 function wireSig(canvas) {
   const ctx = canvas.getContext('2d');
-  const fit = () => { canvas.width = canvas.offsetWidth * 2; canvas.height = 360; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.strokeStyle = '#111'; };
+  const fit = () => {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = canvas.offsetWidth, h = canvas.offsetHeight || 180;
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#111';
+    // resizing wipes the canvas: redraw the captured strokes if any
+    const v = sigData[canvas.id];
+    if (v) { const img = new Image();
+      img.onload = () => { try { ctx.drawImage(img, 0, 0, w, h); } catch (e) {} };
+      img.src = v; }
+  };
+  canvas._refit = fit;
   fit(); let drawing = false, lx = 0, ly = 0;
   const pos = e => { const r = canvas.getBoundingClientRect(); const p = e.touches ? e.touches[0] : e;
-    return [(p.clientX - r.left) * 2, (p.clientY - r.top) * 2]; };
+    return [p.clientX - r.left, p.clientY - r.top]; };
   const start = e => { e.preventDefault(); drawing = true; [lx, ly] = pos(e); };
   const move = e => { if (!drawing) return; e.preventDefault(); const [x, y] = pos(e);
     ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(x, y); ctx.stroke(); lx = x; ly = y; };
@@ -1282,6 +1302,7 @@ function render() {
 }
 window.addEventListener('DOMContentLoaded', () => {
   document.documentElement.lang = LANG;
+  bindSigResize();
   syncOutbox();
   loadConfig();
   const kiosk = sessionStorage.getItem('cfc_kiosk');
