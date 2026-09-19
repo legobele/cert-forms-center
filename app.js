@@ -44,6 +44,7 @@ const STR = {
     pinBad: "PIN incorrecto",
     pinLocked: "Demasiados intentos. Intente de nuevo en {s} s.",
     pinIncomplete: "Ingrese los 6 dígitos del PIN.",
+    pinDigit: "Dígito",
     draftStashed: "Bloqueo automático: borrador guardado en este dispositivo.",
     draftFound: "Hay un borrador sin guardar de antes del bloqueo.",
     restore: "Restaurar", discard: "Descartar",
@@ -115,6 +116,7 @@ const STR = {
     pinBad: "Wrong PIN",
     pinLocked: "Too many attempts. Try again in {s} s.",
     pinIncomplete: "Enter all 6 PIN digits.",
+    pinDigit: "Digit",
     draftStashed: "Auto-lock: draft saved on this device.",
     draftFound: "There's an unsent draft from before the lock.",
     restore: "Restore", discard: "Discard",
@@ -436,6 +438,8 @@ function toggleLang() { LANG = LANG === 'es' ? 'en' : 'es'; localStorage.setItem
 /* ---------- view: PIN gate ---------- */
 function renderPin() {
   S.view = 'pin'; stopDemo(); stopListeners();
+  const pinBoxes = [0,1,2,3,4,5].map(i =>
+    `<input inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="off" aria-label="${esc(t('pinDigit'))} ${i+1}">`).join('');
   app().innerHTML = chrome(t('appName')) + `
   <div class="card center">
     <div class="masthead">
@@ -444,7 +448,7 @@ function renderPin() {
       <div class="sub">${esc(t('appName'))}</div>
     </div>
     <div class="pin-label">${esc(t('pinTitle'))}</div>
-    <div class="pinrow" id="pinrow">${'<input inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="off">'.repeat(6)}</div>
+    <div class="pinrow" id="pinrow">${pinBoxes}</div>
     <div class="keypad" role="group" aria-label="${esc(t('pinPad'))}">
       <button type="button" onclick="pinKey('1')">1</button><button type="button" onclick="pinKey('2')">2</button><button type="button" onclick="pinKey('3')">3</button>
       <button type="button" onclick="pinKey('4')">4</button><button type="button" onclick="pinKey('5')">5</button><button type="button" onclick="pinKey('6')">6</button>
