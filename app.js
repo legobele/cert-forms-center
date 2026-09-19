@@ -346,6 +346,16 @@ function renderPin() {
       if (b.value && i < 5) boxes[i+1].focus(); if (i === 5 && b.value) submitPin(); });
     b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i-1].focus(); });
   });
+  // paste the full 6-digit PIN across the boxes instead of truncating to one digit
+  document.getElementById('pinrow').addEventListener('paste', e => {
+    const digits = ((e.clipboardData || {}).getData('text') || '').replace(/\D/g, '').slice(0, 6);
+    if (!digits) return;
+    e.preventDefault();
+    boxes.forEach((b, i) => { b.value = digits[i] || ''; });
+    const next = boxes.findIndex(b => !b.value);
+    (next >= 0 ? boxes[next] : boxes[5]).focus();
+    if (digits.length === 6) submitPin();
+  });
   boxes[0].focus();
 }
 function pinKey(d) { // on-screen keypad feeds the same #pinrow inputs as a hardware keyboard
