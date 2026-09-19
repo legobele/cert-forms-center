@@ -92,7 +92,7 @@ const STR = {
     submittedBy: "Por", at: "el", noItems: "Nada aquí todavía.",
     demoLive: "VER DEMO EN VIVO", demoBanner: "⚠ DEMO — datos simulados, no reales",
     demoView: "Vista demo en vivo", simOn: "Simulador activo: actividad demo cada ~25 s",
-    close: "Cerrar", details: "Detalles", signature: "Firma",
+    close: "Cerrar", details: "Detalles", signature: "Firma", sigAlt: "Firma manuscrita",
     actorName: "Nombre de quien llena", submitSigned: "Guardar y firmar",
     submitDraft: "Guardar borrador", tplFrom: "Plantilla",
     rows: "filas", signHere: "Firme aquí", tplFail: "No se pudo cargar la plantilla.",
@@ -166,7 +166,7 @@ const STR = {
     submittedBy: "By", at: "at", noItems: "Nothing here yet.",
     demoLive: "VIEW LIVE DEMO", demoBanner: "⚠ DEMO — simulated data, not real",
     demoView: "Live demo view", simOn: "Simulator on: demo activity every ~25 s",
-    close: "Close", details: "Details", signature: "Signature",
+    close: "Close", details: "Details", signature: "Signature", sigAlt: "Handwritten signature",
     actorName: "Filler name", submitSigned: "Save and sign",
     submitDraft: "Save draft", tplFrom: "Template",
     rows: "rows", signHere: "Sign here", tplFail: "Could not load the template.",
@@ -1123,7 +1123,7 @@ async function renderSubmission(id) {
   const name = tplName(s.templateId);
   const fv = s.fieldValues || {};
   const rows = Object.entries(fv).map(([k, v]) => {
-    const disp = safeImg(v) ? `<img src="${v}" style="max-width:220px;border:1px solid var(--line)">` : esc(v === true ? '✓' : v === false ? '✗' : v);
+    const disp = safeImg(v) ? `<img src="${v}" alt="${esc(t('sigAlt'))}" style="max-width:220px;border:1px solid var(--line)">` : esc(v === true ? '✓' : v === false ? '✗' : v);
     return `<div class="kv"><dt><b>${esc(k)}</b></dt><dd class="pv">${disp}</dd></div>`;
   }).join('');
   const trows = Object.entries(s.tables || {}).map(([tn, arr]) => {
