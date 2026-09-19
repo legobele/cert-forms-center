@@ -466,7 +466,7 @@ function renderPin() {
       <button type="button" onclick="pinKey('7')">7</button><button type="button" onclick="pinKey('8')">8</button><button type="button" onclick="pinKey('9')">9</button>
       <button type="button" class="fn" onclick="pinClear()">${esc(t('pinClearBtn'))}</button><button type="button" onclick="pinKey('0')">0</button><button type="button" class="fn" aria-label="${esc(t('backKey'))}" onclick="pinBack()">&#9003;</button>
     </div>
-    <button class="warn" onclick="submitPin()">${esc(t('pinBtn'))}</button>
+    <button class="warn" onclick="once('submitPin',submitPin)">${esc(t('pinBtn'))}</button>
     <button class="sec" onclick="enterDemo()">${esc(t('demoLive'))}</button>
     <p class="mut small">${esc(t('pinSub'))}</p>
     <div class="offline">&#9673; ${esc(t('offlineBanner'))}</div>
