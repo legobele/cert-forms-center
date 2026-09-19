@@ -96,6 +96,7 @@ const STR = {
     actorName: "Nombre de quien llena", submitSigned: "Guardar y firmar",
     submitDraft: "Guardar borrador", tplFrom: "Plantilla",
     rows: "filas", signHere: "Firme aquí", tplFail: "No se pudo cargar la plantilla.",
+    tplListFail: "No se pudieron cargar las plantillas.",
     signPadLabel: "Recuadro de firma. Dibuje con el dedo o el mouse, o escriba su nombre con el botón «Escribir nombre». Con teclado: las flechas dibujan y el Espacio activa el trazo.",
     typeToSign: "Escribir nombre", typeNamePh: "Escriba su nombre para firmar",
     incCreated: "Incidente creado", fillRequired: "Complete los campos obligatorios.",
@@ -172,6 +173,7 @@ const STR = {
     actorName: "Filler name", submitSigned: "Save and sign",
     submitDraft: "Save draft", tplFrom: "Template",
     rows: "rows", signHere: "Sign here", tplFail: "Could not load the template.",
+    tplListFail: "Could not load the templates.",
     signPadLabel: "Signature pad. Draw with finger or mouse, or type your name with the “Type name” button. Keyboard: arrow keys draw, Space toggles the pen.",
     typeToSign: "Type name", typeNamePh: "Type your name to sign",
     incCreated: "Incident created", fillRequired: "Fill the required fields.",
@@ -741,13 +743,16 @@ function drawDashShell() {
 }
 
 /* ---------- templates: loader (bucket → repo fallback, localStorage cache) ---------- */
-let MANIFEST = null;
+let MANIFEST = null, MANIFEST_ERR = false;
 async function loadManifest() {
   if (MANIFEST) return MANIFEST;
   try {
     const r = await fetch('forms/manifest.json');
-    MANIFEST = await r.json();
-  } catch (e) { MANIFEST = []; }
+    if (!r.ok) throw new Error('manifest http ' + r.status);
+    const j = await r.json();
+    if (!Array.isArray(j)) throw new Error('manifest not an array');
+    MANIFEST = j; MANIFEST_ERR = false;
+  } catch (e) { MANIFEST_ERR = true; return []; } // no cachear el fallo: el próximo render reintenta
   return MANIFEST;
 }
 async function loadTemplateXml(id) {
@@ -1043,6 +1048,10 @@ async function renderTemplates() {
   <div class="card"><h2>${esc(t('chooseTemplate'))}</h2><div id="tpllist"><p class="mut">${esc(t('loading'))}</p></div>
   <button class="ghost" onclick="renderDashboard()">${esc(t('back'))}</button></div>` + footnav('incidents');
   const m = await loadManifest();
+  if (!m.length) { // manifest corrupto/vacío: error amable, nunca una lista vacía sin explicación
+    $('tpllist').innerHTML = `<p class="mut">${esc(MANIFEST_ERR ? t('tplListFail') : t('noItems'))}</p>`;
+    return;
+  }
   $('tpllist').innerHTML = m.map(x => `
     <button class="modebtn" onclick="renderFill('${x.id}')">📄 <b>${esc(LANG==='es'?x.name_es:x.name_en)}</b><br>
     <span class="small mut">v${x.version} · ${esc(x.id)}</span></button>`).join('');
