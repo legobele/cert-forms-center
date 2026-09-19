@@ -11,6 +11,8 @@ const FB_CONFIG = {
   appId: "1:620982874670:web:a8186a37569a3fecec25bf"
 };
 const PIN_HASH_FALLBACK = "b3f25d01ddb3fafeb251acbce91c2880d8130a38e5c064e142414c6d2ebbaedc";
+const DEMO_ORG_ID = "demo-2026-09-20";
+const BUCKET_URL = "https://firebasestorage.googleapis.com/v0/b/cert-forms-center.firebasestorage.app/o/forms%2Ftemplates%2F";
 /* Runtime-overridable from Firestore config/access (hardcoded fallbacks). */
 let PIN_HASH = PIN_HASH_FALLBACK;
 let LOCK_MIN = 10;
