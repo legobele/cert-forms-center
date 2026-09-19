@@ -150,7 +150,7 @@ select,textarea{
 input:focus,select:focus,textarea:focus{
   border-color:var(--red);box-shadow:3px 3px 0 var(--red-wash)}
 input[type="checkbox"].tickbox,input[type="checkbox"]{
-  width:30px;height:30px;min-height:0;accent-color:var(--red);
+  width:44px;height:44px;min-height:44px;accent-color:var(--red);
   border:2px solid var(--ink);margin:8px 4px 8px 0;vertical-align:middle}
 .req{color:var(--red)}
 textarea{min-height:120px;line-height:1.5}
