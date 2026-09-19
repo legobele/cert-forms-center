@@ -391,7 +391,12 @@ function footnav(active) {
   return `<footer class="foot">` + items.map(([v, l, fn]) =>
     `<button class="${active===v?'on':''}" onclick="${fn}">${l}</button>`).join('') + `</footer>`;
 }
-function go(view) { S.view = view; stopDemo(); render(); }
+/* La navegación inferior puede pedir la demo: debe pasar por enterDemo()
+   (oyentes + simulador), no por render() a secas. */
+function go(view) {
+  if (view === 'demo') return enterDemo();
+  S.view = view; stopDemo(); render();
+}
 function toggleLang() { LANG = LANG === 'es' ? 'en' : 'es'; localStorage.setItem('cfc_lang', LANG); document.documentElement.lang = LANG; render(); }
 
 /* ---------- view: PIN gate ---------- */
