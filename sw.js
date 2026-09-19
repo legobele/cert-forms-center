@@ -1,5 +1,5 @@
 /* CERT Forms Center service worker — offline app shell + form templates */
-const VERSION = '20260919-war2'; // bump on each deploy; activate purges older caches
+const VERSION = '20260919-war3'; // bump on each deploy; activate purges older caches
 const CACHE = 'cfc-' + VERSION;
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './forms/manifest.json',

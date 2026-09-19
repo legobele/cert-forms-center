@@ -10,24 +10,24 @@ const FB_CONFIG = {
   messagingSenderId: "620982874670",
   appId: "1:620982874670:web:a8186a37569a3fecec25bf"
 };
-const PIN_HASH_FALLBACK = "b3f25d01ddb3fafeb251acbce91c2880d8130a38e5c064e142414c6d2ebbaedc";
+/* Server-side PIN verification (Cloud Function). The PIN and its hash live ONLY
+   in Secret Manager — nothing PIN-related is verifiable from shipped JS. */
+const VERIFY_PIN_URL = 'https://us-central1-cert-forms-center.cloudfunctions.net/verifyPin';
 const DEMO_ORG_ID = "demo-2026-09-20";
 const BUCKET_URL = "https://firebasestorage.googleapis.com/v0/b/cert-forms-center.firebasestorage.app/o/forms%2Ftemplates%2F";
 /* Runtime-overridable from Firestore config/access (hardcoded fallbacks). */
-let PIN_HASH = PIN_HASH_FALLBACK;
 let LOCK_MIN = 10;
 let KIOSK_DEFAULT_USER = "";
 const DEMO_TICK_MS = 25000;
 
-/* Pull PIN hash / auto-lock minutes / default kiosk user from Firestore
-   config/access; keeps hardcoded fallbacks when offline or unset. */
+/* Pull auto-lock minutes / default kiosk user from Firestore config/access.
+   (pinHash was removed: PIN verification is server-side now, see VERIFY_PIN_URL.) */
 async function loadConfig() {
   if (!FB_OK) return;
   try {
     const d = await db.collection('config').doc('access').get();
     if (!d.exists) return;
     const c = d.data() || {};
-    if (typeof c.pinHash === 'string' && /^[0-9a-f]{64}$/i.test(c.pinHash)) PIN_HASH = c.pinHash;
     if (Number.isFinite(+c.autoLockMinutes) && +c.autoLockMinutes > 0) LOCK_MIN = +c.autoLockMinutes;
     if (typeof c.kioskDefaultUser === 'string') KIOSK_DEFAULT_USER = c.kioskDefaultUser.slice(0, 60);
     pokeLock(); // re-arm with the (possibly new) LOCK_MIN
@@ -44,6 +44,7 @@ const STR = {
     pinBad: "PIN incorrecto",
     pinLocked: "Demasiados intentos. Intente de nuevo en {s} s.",
     pinIncomplete: "Ingrese los 6 dígitos del PIN.",
+    pinServerErr: "No se pudo verificar el PIN (servidor no disponible).",
     pinDigit: "Dígito",
     draftStashed: "Bloqueo automático: borrador guardado en este dispositivo.",
     draftFound: "Hay un borrador sin guardar de antes del bloqueo.",
@@ -134,6 +135,7 @@ const STR = {
     pinBad: "Wrong PIN",
     pinLocked: "Too many attempts. Try again in {s} s.",
     pinIncomplete: "Enter all 6 PIN digits.",
+    pinServerErr: "Could not verify PIN (server unreachable).",
     pinDigit: "Digit",
     draftStashed: "Auto-lock: draft saved on this device.",
     draftFound: "There's an unsent draft from before the lock.",
@@ -285,17 +287,6 @@ const fmtT = v => {
   const d = v.toDate ? v.toDate() : new Date(v);
   return d.toLocaleString(LANG === 'es' ? 'es-PR' : 'en-US', {dateStyle:'short', timeStyle:'short'});
 };
-function sha256hex(str) {
-  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-    .then(b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join(''));
-}
-function constEq(a, b) { // constant-time-ish compare
-  if (a.length !== b.length) return false;
-  let d = 0;
-  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return d === 0;
-}
-
 /* ---------- Firebase ---------- */
 let db = null, auth = null, storage = null, FB_OK = false;
 try {
@@ -393,8 +384,36 @@ async function syncOutbox() {
 }
 window.addEventListener('online', syncOutbox);
 
-/* ---------- PIN gate + auto-lock ---------- */
-function unlocked() { return sessionStorage.getItem('cfc_unlocked') === '1'; }
+/* ---------- PIN gate + auto-lock ----------
+   Unlock state is a server-signed JWT (verifyPin), NOT a client-set flag.
+   `sessionStorage.setItem('cfc_unlocked','1')` no longer unlocks anything. */
+function getUnlockToken() {
+  try { return sessionStorage.getItem('cfc_unlock_token') || ''; } catch (e) { return ''; }
+}
+function clearUnlockToken() {
+  try { sessionStorage.removeItem('cfc_unlock_token'); } catch (e) {}
+}
+function tokenFresh(tok) {
+  try {
+    const payload = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
+  } catch (e) { return false; }
+}
+function unlocked() { return tokenFresh(getUnlockToken()); }
+async function callVerifyPin(body) {
+  const ctl = new AbortController();
+  const to = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch(VERIFY_PIN_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), signal: ctl.signal,
+    });
+    const data = await r.json().catch(() => ({}));
+    return { http: r.status, ...data };
+  } catch (e) {
+    return { http: 0, ok: false, error: 'network' };
+  } finally { clearTimeout(to); }
+}
 let lockTimer = null;
 function pokeLock() {
   if (!unlocked()) return;
@@ -415,7 +434,7 @@ async function lockNow() {
 async function doLock() {
   stashDraft(); // never vaporize an in-progress form silently
   const wasPersonal = S.mode === 'personal';
-  sessionStorage.removeItem('cfc_unlocked');
+  clearUnlockToken(); // the single choke point: token gone = locked, everywhere
   sessionStorage.removeItem('cfc_kiosk');
   sessionStorage.removeItem('cfc_mode');
   S.mode = null; S.actor = null; S.uid = null; stopDemo(); stopListeners();
@@ -443,30 +462,43 @@ function stashDraft() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && unlocked()) doLock();
 });
-async function checkPin(pin) {
-  const h = await sha256hex(pin);
-  return constEq(h, PIN_HASH);
-}
-/* PIN brute-force guard: 5 fallos -> 60 s de bloqueo */
-let pinFails = 0, pinLockUntil = 0;
+/* PIN verification is server-side (verifyPin Cloud Function): the candidate goes
+   to the server, the server rate-limits per IP and returns a signed token.
+   Rate limiting / lockout live server-side — there is deliberately no
+   client-side fail counter anymore (client state is attacker-controlled). */
 async function submitPin() {
-  const now = Date.now();
-  if (now < pinLockUntil) { toast(t('pinLocked').replace('{s}', String(Math.ceil((pinLockUntil - now) / 1000)))); return; }
   const pin = [...document.querySelectorAll('#pinrow input')].map(b => b.value).join('');
   if (pin.length !== 6) { toast(t('pinIncomplete')); return; }
-  if (await checkPin(pin)) {
-    pinFails = 0; pinLockUntil = 0;
-    sessionStorage.setItem('cfc_unlocked', '1'); pokeLock();
+  const res = await callVerifyPin({ pin });
+  if (res.ok && res.token) {
+    try { sessionStorage.setItem('cfc_unlock_token', res.token); } catch (e) {}
+    pokeLock();
     // El callback one-shot de auth ya pudo haber resuelto al usuario persistido
     // mientras el equipo seguía bloqueado (caso normal con auth rápida): en ese
     // caso la sesión personal nunca se restaura. Reintentar aquí con el usuario
     // actual; si restaura, ya navegó a incidents y no mostramos el selector.
     if (auth && auth.currentUser && !S.mode) restorePersonalSession(auth.currentUser);
     if (!S.mode) renderMode();
-  } else if (++pinFails >= 5) {
-    pinFails = 0; pinLockUntil = Date.now() + 60000;
-    toast(t('pinLocked').replace('{s}', '60'));
+  } else if (res.http === 429) {
+    toast(t('pinLocked').replace('{s}', String(res.retryAfter || 60)));
+  } else if (res.http === 0) {
+    toast(t('pinServerErr'));
   } else toast(t('pinBad'));
+}
+/* Boot-time: a stored token is revalidated against the server when online.
+   Offline (or unreachable server): trust the local expiry — the kiosk must
+   keep working on flaky venue wifi. An invalid/forged token is discarded. */
+async function bootUnlockCheck() {
+  const tok = getUnlockToken();
+  if (!tok) return false;
+  if (!tokenFresh(tok)) { clearUnlockToken(); return false; }
+  if (!navigator.onLine) return true;
+  try {
+    const res = await callVerifyPin({ token: tok });
+    if (res.http === 0) return true; // server unreachable: trust local expiry
+    if (!res.ok) clearUnlockToken();
+    return !!res.ok;
+  } catch (e) { return true; }
 }
 
 /* ---------- header/footer chrome ---------- */
@@ -1743,13 +1775,17 @@ window.addEventListener('DOMContentLoaded', () => {
   syncOutbox();
   loadConfig();
   const kiosk = sessionStorage.getItem('cfc_kiosk');
-  if (unlocked() && kiosk) { S.mode = 'kiosk'; S.actor = kiosk; }
-  if (!routeFromHash(true)) {
-    // no hash: existing behavior unchanged
-    if (unlocked() && S.mode) S.view = 'incidents';
-    else if (unlocked()) S.view = 'mode';
-    render();
-  }
+  // Revalidate any stored unlock token against the server before trusting it.
+  renderPin(); // immediate: never flash unlocked UI on a forged/stale token
+  bootUnlockCheck().then(ok => {
+    if (ok && kiosk) { S.mode = 'kiosk'; S.actor = kiosk; }
+    if (!routeFromHash(true)) {
+      if (unlocked() && S.mode) S.view = 'incidents';
+      else if (unlocked()) S.view = 'mode';
+      else S.view = 'pin';
+      render();
+    }
+  });
 });
 /* expose handlers used by inline onclick */
 Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock, lockNow, renderMode, modeKiosk, modePersonal,
