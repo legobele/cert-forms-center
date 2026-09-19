@@ -921,8 +921,10 @@ function collectValues(prefix, form) {
   for (const tn of Object.keys(tableRows)) tables[tn] = [...tableRows[tn].values()];
   const allFields = [...form.header, ...form.footer];
   // 0 cuenta como diligenciado (antes era el string "0", truthy): evita
-  // marcar como faltante un campo numérico obligatorio con valor cero
-  for (const f of allFields) if (f.required && !values[f.name] && values[f.name] !== 0) reqMissing.push(LBL(f));
+  // marcar como faltante un campo numérico obligatorio con valor cero;
+  // un string de solo espacios también cuenta como vacío
+  const isBlank = v => v === undefined || v === null || v === false || v === '' || (typeof v === 'string' && !v.trim());
+  for (const f of allFields) if (f.required && isBlank(values[f.name])) reqMissing.push(LBL(f));
   return {values, tables, reqMissing};
 }
 
