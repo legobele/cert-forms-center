@@ -1,62 +1,322 @@
+/* ============================================================
+   CERT Forms Center — "TABLILLA" (el formulario de papel, digitalizado)
+   Vanilla CSS · cero peticiones externas · solo fuentes del sistema
+   ============================================================ */
 :root{
-  --green:#0f4c3a; --green-d:#0a3527; --lime:#b8e62e; --bg:#f4f6f2; --card:#fff;
-  --ink:#1c2420; --mut:#6b7a72; --line:#dfe5e0; --red:#c0392b; --amber:#b7791f;
+  --paper:      #f5f1e6;  /* papel cálido */
+  --paper-2:    #ece3cd;  /* papel más hondo (franjas, pozos) */
+  --well:       #fbf8ef;  /* pozos de campo */
+  --rule:       #ddd1b4;  /* líneas finas del papel */
+  --ink:        #1b1712;  /* tinta */
+  --ink-soft:   #5c5340;  /* tinta apagada (etiquetas) */
+  --red:        #b23a2c;  /* rojo seguridad / sello */
+  --red-deep:   #8a2a20;
+  --red-wash:   #f6e4dc;
+  --amber:      #cf8a1f;  /* ámbar */
+  --amber-wash: #f5e6c4;
+  --desk:       #211b12;  /* fondo "escritorio" detrás de las tablillas */
+  --line:       var(--rule); /* alias legado usado por app.js inline styles */
+
+  --f-head: "Arial Narrow","Franklin Gothic Medium","Franklin Gothic",
+            "HelveticaNeue-CondensedBold","Helvetica Condensed",Impact,sans-serif;
+  --f-mono: ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --f-body: -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Helvetica Neue",sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.45}
-#app{max-width:760px;margin:0 auto;padding:0 14px 90px}
-header.top{position:sticky;top:0;z-index:20;background:var(--green);color:#fff;margin:0 -14px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-header.top .t{font-weight:700;font-size:1.05rem;flex:1}
-header.top .tag{background:var(--lime);color:#173300;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px}
-header.top button{margin:0}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--desk);
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 1px, transparent 1px 5px);
+  font-family:var(--f-body);
+  color:var(--ink);
+  font-size:16px; line-height:1.45;
+  padding:0 0 120px;
+}
+#app{max-width:520px;margin:0 auto;padding:0 14px}
 h1{font-size:1.5rem;margin:.2em 0}h2{font-size:1.2rem;margin:.3em 0}h3{font-size:1.05rem;margin:.4em 0}
-.mut{color:var(--mut)}.small{font-size:.85rem}.center{text-align:center}
-button,.btn{display:inline-block;background:var(--green);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-size:1rem;font-weight:600;cursor:pointer;margin:6px 6px 6px 0}
-button:active{transform:scale(.97)}
-button.sec{background:#fff;color:var(--green);border:2px solid var(--green)}
-button.warn{background:var(--red)}
-button.ghost{background:none;color:var(--green);border:0;padding:8px;text-decoration:underline}
-button:disabled{opacity:.5;cursor:default}
-input,select,textarea{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;font-size:1rem;margin:4px 0 10px;background:#fff;color:var(--ink)}
-label.f{display:block;font-weight:600;margin-top:8px}
-.req{color:var(--red)}
-table.form{width:100%;border-collapse:collapse;margin:8px 0;font-size:.9rem;display:block;overflow-x:auto}
-table.form th,table.form td{border:1px solid var(--line);padding:4px;vertical-align:top;min-width:90px}
-table.form th{background:#eef3ec;font-size:.78rem}
-table.form input,table.form select{margin:0;padding:6px;font-size:.9rem}
-.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
-.pinrow{display:flex;gap:8px;justify-content:center;margin:18px 0}
-.pinrow input{width:52px;height:62px;text-align:center;font-size:1.6rem;font-weight:700;padding:0;margin:0}
-.badge{display:inline-block;font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:99px;background:#e8f3e6;color:var(--green)}
-.badge.demo{background:#fde8e8;color:var(--red)}
-.badge.draft{background:#fff3d6;color:var(--amber)}
-.badge.signed{background:#e6f2e8;color:var(--green)}
-.listitem{display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;margin:10px 0;color:inherit;text-decoration:none}
-.listitem:active{background:#f2f7f1}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.95rem;margin:8px 0}
-.kv dt{color:var(--mut)}.kv dd{margin:0;word-break:break-word}
-canvas.sig{border:2px dashed var(--line);border-radius:10px;width:100%;height:180px;touch-action:none;background:#fff}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#20282a;color:#fff;padding:12px 20px;border-radius:12px;z-index:99;max-width:90vw;font-size:.95rem;box-shadow:0 4px 14px rgba(0,0,0,.3)}
-.demo-banner{background:#fde8e8;border:2px dashed var(--red);color:var(--red);font-weight:700;text-align:center;padding:10px;border-radius:12px;margin:12px 0}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
-.chip{border:2px solid var(--green);background:#fff;color:var(--green);border-radius:99px;padding:6px 14px;font-size:.9rem;margin:0}
-.chip.on{background:var(--green);color:#fff}
-.modebtn{width:100%;text-align:left;padding:18px;font-size:1.05rem}
-footer.foot{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;z-index:20}
-footer.foot button{flex:1;margin:0;border:0;border-radius:0;background:#fff;color:var(--green);padding:12px 4px;font-size:.82rem}
-footer.foot button.on{background:var(--green);color:#fff}
-.off{opacity:.55;filter:grayscale(.4)}
-hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.mut{color:var(--ink-soft)}.small{font-size:.85rem}.center{text-align:center}
+a{color:var(--red-deep)}
 
+/* ---------- cromo superior: barra de escritorio ---------- */
+header.top{
+  position:sticky;top:0;z-index:20;
+  background:var(--desk);
+  border-bottom:2px solid #14100a;
+  color:var(--paper);
+  margin:0 -14px;padding:10px 14px;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.4);
+}
+header.top .t{
+  font-family:var(--f-head);font-weight:800;text-transform:uppercase;
+  letter-spacing:.1em;font-size:1rem;flex:1;color:var(--paper);
+}
+header.top .tag{
+  display:inline-block;
+  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
+  letter-spacing:.22em;line-height:1;font-size:.72rem;
+  padding:.45em .8em .35em;color:var(--red);
+  border:3px double currentColor;border-radius:2px;
+  transform:rotate(-6deg);opacity:.95;background:rgba(178,58,44,.12);
+}
+header.top button{margin:0}
+
+/* ---------- la tablilla: hoja de papel con clip ---------- */
+.card{
+  position:relative;
+  background-color:var(--paper);
+  /* grano de papel: solo repeating-gradients, nada de imágenes */
+  background-image:
+    repeating-linear-gradient(0deg,  rgba(120,98,58,.055) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(120,98,58,.040) 0 1px, transparent 1px 4px);
+  border:2px solid #14100a;
+  padding:26px 20px 28px;
+  margin:34px 0 16px;
+  box-shadow:0 14px 34px rgba(0,0,0,.55);
+}
+.card::before{ /* el clip del portapapeles */
+  content:"";position:absolute;top:-26px;left:50%;transform:translateX(-50%);
+  width:120px;height:28px;z-index:2;
+  background:linear-gradient(#7a6f5c,#4c4436);
+  border:2px solid #14100a;border-bottom:none;border-radius:8px 8px 0 0;
+  box-shadow:0 2px 0 rgba(0,0,0,.45);
+}
+
+/* ---------- sellos de goma (CSS puro) ---------- */
+.stamp{
+  display:inline-block;
+  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
+  letter-spacing:.22em;line-height:1;
+  padding:.45em .9em .35em;
+  border:3px double currentColor;border-radius:2px;
+  transform:rotate(-8deg);opacity:.92;
+  text-shadow:0 0 1px currentColor;
+  pointer-events:none;user-select:none;white-space:nowrap;
+}
+.stamp.red{color:var(--red);background:rgba(178,58,44,.07)}
+.stamp.amber{color:var(--amber);background:rgba(207,138,31,.08)}
+.stamp.ink{color:var(--ink);background:rgba(27,23,18,.05)}
+.stamp.demo-corner{position:absolute;top:14px;right:12px;font-size:17px;z-index:3}
+
+/* ---------- membrete ---------- */
+.masthead{border-bottom:3px solid var(--ink);padding-bottom:12px;margin-bottom:18px}
+.masthead .orgline{
+  font-family:var(--f-mono);font-size:11px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--ink-soft)}
+.masthead h1,.masthead h2{
+  font-family:Impact,"Arial Narrow","Franklin Gothic Medium",sans-serif;
+  font-weight:900;text-transform:uppercase;letter-spacing:.03em;
+  font-size:34px;line-height:.95;margin:6px 0 0;overflow-wrap:break-word}
+.masthead .sub{
+  font-family:var(--f-head);font-weight:700;text-transform:uppercase;
+  letter-spacing:.14em;font-size:14px;color:var(--red);margin-top:6px}
+
+/* etiqueta "sellada" de sección */
+.section-tag{
+  display:inline-block;
+  font-family:var(--f-head);font-weight:800;text-transform:uppercase;
+  letter-spacing:.14em;font-size:15px;line-height:1;
+  background:var(--ink);color:var(--paper);
+  border:2px solid var(--ink);
+  padding:.5em 1em .4em;
+  transform:rotate(-1deg);
+  box-shadow:4px 4px 0 var(--rule)}
+.section-tag .n{font-family:var(--f-mono);font-weight:400;margin-right:.6em;opacity:.75}
+
+/* secciones encajonadas como el papel real */
+.fsection{
+  border:2px solid var(--ink);background:rgba(255,255,255,.28);
+  padding:28px 16px 18px;margin:26px 0 8px;position:relative}
+.fsection > .section-tag{position:absolute;top:-17px;left:12px}
+
+/* ---------- campos: celdas encajonadas ---------- */
+label.f{
+  display:block;font-family:var(--f-head);font-weight:700;font-size:12px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);
+  margin:10px 0 6px}
+.field{margin-bottom:6px}
+.field input,.field textarea,.field select,
+input[type="text"],input[type="date"],input[type="time"],input[type="datetime-local"],
+input[type="number"],input[type="email"],input[type="password"],input[type="file"],
+select,textarea{
+  width:100%;min-height:52px;
+  font-family:var(--f-mono);font-size:17px;color:var(--ink);
+  background:var(--well);border:2px solid var(--ink);border-radius:0;
+  padding:10px 12px;outline:none;margin:4px 0 10px;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--red);box-shadow:3px 3px 0 var(--red-wash)}
+input[type="checkbox"].tickbox,input[type="checkbox"]{
+  width:30px;height:30px;min-height:0;accent-color:var(--red);
+  border:2px solid var(--ink);margin:8px 4px 8px 0;vertical-align:middle}
+.req{color:var(--red)}
+textarea{min-height:120px;line-height:1.5}
+
+/* tablas del renderizador genérico */
+table.form{width:100%;border-collapse:collapse;margin:8px 0;font-size:.9rem;display:block;overflow-x:auto;background:var(--well);border:2px solid var(--ink)}
+table.form th,table.form td{border:1px solid var(--rule);padding:4px;vertical-align:top;min-width:90px}
+table.form th{background:var(--paper-2);font-family:var(--f-head);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+table.form input,table.form select{margin:0;padding:8px;font-size:.9rem;min-height:48px}
+
+/* ---------- botones: bloques de tinta, 56px+ ---------- */
+button,.btn{
+  display:inline-block;min-height:56px;cursor:pointer;border-radius:0;
+  font-family:var(--f-head);font-weight:800;font-size:17px;
+  letter-spacing:.12em;text-transform:uppercase;
+  border:3px solid var(--ink);background:var(--ink);color:var(--paper);
+  box-shadow:5px 5px 0 rgba(0,0,0,.45);
+  padding:12px 18px;margin:8px 8px 8px 0;text-decoration:none}
+button:active,.btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 rgba(0,0,0,.45)}
+button:disabled{opacity:.5;cursor:default}
+button.sec{background:var(--well);color:var(--ink)}
+button.warn{background:var(--red);border-color:var(--red-deep);color:#fff}
+button.ghost{background:none;color:var(--ink);border:0;box-shadow:none;padding:10px 8px;text-decoration:underline;min-height:48px}
+header.top button.ghost{color:var(--paper);text-decoration:none;font-size:.85rem}
+button.modebtn{width:100%;text-align:left;padding:18px;font-size:1.05rem;display:block}
+button.modebtn .small{letter-spacing:.04em}
+
+/* ---------- insignias → sellos ---------- */
+.badge{
+  display:inline-block;
+  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
+  letter-spacing:.18em;line-height:1;font-size:.72rem;
+  padding:.45em .8em .35em;
+  border:3px double currentColor;border-radius:2px;
+  transform:rotate(-6deg);opacity:.92;white-space:nowrap}
+.badge.demo{color:var(--red);background:rgba(178,58,44,.07)}
+.badge.draft{color:var(--amber);background:rgba(207,138,31,.08)}
+.badge.signed{color:var(--red);background:rgba(178,58,44,.07)}
+.badge.active{color:var(--ink);background:rgba(27,23,18,.05)}
+.badge.archived{color:var(--ink-soft);background:rgba(27,23,18,.03)}
+
+/* ---------- tarjetas de lista → volantes ---------- */
+.listitem{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  border:2px solid var(--ink);background:var(--well);border-radius:0;
+  padding:14px 14px 12px;margin:12px 0;position:relative;
+  box-shadow:4px 4px 0 var(--rule);font-family:var(--f-body);color:var(--ink);
+  text-decoration:none}
+a.listitem{color:var(--ink)}
+.listitem:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--rule)}
+.listitem .idrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.listitem .id{font-family:var(--f-mono);font-size:12px;color:var(--ink-soft)}
+
+/* ---------- PIN: puntos + teclado ---------- */
+.pin-label{text-align:center;font-family:var(--f-head);font-weight:700;font-size:13px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);margin:18px 0 6px}
+.pinrow{display:flex;gap:12px;justify-content:center;margin:14px 0 8px}
+.pinrow input{
+  width:60px;height:70px;text-align:center;
+  font-family:var(--f-mono);font-size:32px;font-weight:700;color:var(--ink);
+  border:3px solid var(--ink);background:var(--well);border-radius:0;padding:0;margin:0}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.keypad button{
+  min-height:68px;margin:0;
+  border:2px solid var(--ink);background:var(--well);border-radius:0;box-shadow:none;
+  font-family:var(--f-head);font-weight:800;font-size:26px;color:var(--ink);letter-spacing:0}
+.keypad button:active{background:var(--ink);color:var(--paper);transform:none}
+.keypad button.fn{font-size:14px;letter-spacing:.14em;background:var(--paper-2);text-transform:uppercase}
+.offline{
+  margin-top:18px;border:2px dashed var(--ink-soft);padding:10px 12px;
+  font-family:var(--f-mono);font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.6}
+
+/* ---------- tablero ---------- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);margin-bottom:16px}
+.stats .stat{padding:10px 6px;text-align:center;background:var(--well)}
+.stats .stat + .stat{border-left:2px solid var(--ink)}
+.stats .num{font-family:var(--f-mono);font-weight:700;font-size:24px}
+.stats .lbl{font-family:var(--f-head);font-weight:700;font-size:10px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
+.filters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.filters button{
+  min-height:48px;margin:0;border:2px solid var(--ink);background:transparent;border-radius:0;box-shadow:none;
+  font-family:var(--f-head);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+.filters button.on{background:var(--ink);color:var(--paper)}
+.sync-strip{
+  border:2px solid var(--amber);background:var(--amber-wash);
+  font-family:var(--f-mono);font-size:13px;padding:10px 12px;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+
+/* ---------- llenar formulario ---------- */
+.formid{display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--f-mono);font-size:12px;color:var(--ink-soft);margin-bottom:4px}
+.recibido-banner{
+  border:3px double var(--red);padding:14px;text-align:center;margin-top:22px;
+  transform:rotate(-1.5deg);background:rgba(178,58,44,.05)}
+.recibido-banner .stamp{font-size:22px}
+
+/* ---------- firma ---------- */
+.signbox{border:2px solid var(--ink);background:var(--well);min-height:180px;position:relative;margin:6px 0 10px}
+.signbox canvas.sig{
+  border:0;border-radius:0;background:transparent;
+  width:100%;height:180px;touch-action:none;display:block}
+.signbox .xline{position:absolute;left:16px;right:16px;bottom:30px;border-bottom:2px solid var(--ink);pointer-events:none}
+.signbox .xline::before{content:"X";font-family:var(--f-mono);font-size:20px;position:absolute;left:0;top:-24px}
+.signbox .cap{position:absolute;left:16px;bottom:8px;font-family:var(--f-head);
+  font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);pointer-events:none}
+
+/* ---------- detalle / kv ---------- */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.95rem;margin:8px 0}
+.kv dt{color:var(--ink-soft);font-family:var(--f-head);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}
+.kv dd{margin:0;word-break:break-word;font-family:var(--f-mono);font-size:.92rem}
+hr{border:0;border-top:1px solid var(--rule);margin:14px 0}
+.off{opacity:.55;filter:grayscale(.4)}
+
+/* ---------- demo: cuarentena visible ---------- */
+.demo-banner{
+  border:3px double var(--red);padding:12px;text-align:center;margin:26px 0 4px;
+  transform:rotate(-1.5deg);background:rgba(178,58,44,.06);
+  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
+  letter-spacing:.18em;font-size:15px;color:var(--red)}
+.demo-banner .stamp{font-size:16px}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%) rotate(-1deg);bottom:90px;
+  background:var(--ink);color:var(--paper);padding:12px 20px;border:2px solid #000;
+  box-shadow:5px 5px 0 rgba(0,0,0,.45);z-index:99;max-width:90vw;font-size:.95rem;
+  font-family:var(--f-head);letter-spacing:.06em;text-transform:uppercase}
+
+/* ---------- pie de navegación ---------- */
+footer.foot{
+  position:fixed;bottom:0;left:0;right:0;background:var(--desk);
+  border-top:2px solid #14100a;display:flex;z-index:20;
+  box-shadow:0 -2px 8px rgba(0,0,0,.4)}
+footer.foot button{
+  flex:1;margin:0;border:0;border-radius:0;background:transparent;color:var(--paper);
+  padding:14px 4px;font-size:.85rem;box-shadow:none;min-height:60px}
+footer.foot button.on{background:var(--ink);color:var(--amber)}
+
+/* ---------- impresión: la hoja de papel real ---------- */
 @media print{
-  header.top,footer.foot,.noprint,.toast,.card.noprint{display:none!important}
-  body{background:#fff}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;padding:0}
   #app{max-width:none;padding:0}
-  .card{border:0;box-shadow:none;margin:0;padding:0}
+  header.top,footer.foot,.noprint,.toast,.card.noprint,.screen-only{display:none!important}
+  .card{border:2px solid #1b1712;box-shadow:none;margin:0 0 14px;padding:20px}
+  .card::before{display:none}
   .print-area{display:block!important}
-  .screen-only{display:none!important}
+  .stamp{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   table.form{display:table}
   a{color:#000;text-decoration:none}
+  .kv{border-top:1px solid #ddd1b4;padding-top:8px}
+  .kv dt{color:#5c5340}
+  .kv .pv{border-bottom:1px solid #999;min-height:1.4em;padding:2px 0}
 }
 .print-area .pv{border-bottom:1px solid #999;min-height:1.2em;padding:2px 0}
+
+/* ---------- responsive ---------- */
+@media (max-width:600px){
+  #app{padding:0 10px}
+  .card{padding:22px 16px 26px}
+  .masthead h1,.masthead h2{font-size:30px}
+  .pinrow input{width:54px;height:64px;font-size:28px}
+  .keypad button{min-height:64px}
+  .stamp.demo-corner{font-size:14px;top:12px;right:10px}
+  .kv{grid-template-columns:1fr}
+  .kv dt{margin-top:8px}
+}

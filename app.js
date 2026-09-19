@@ -245,12 +245,23 @@ function renderPin() {
   S.view = 'pin'; stopDemo(); stopListeners();
   app().innerHTML = chrome(t('appName')) + `
   <div class="card center">
-    <h1>🦀 ${esc(t('appName'))}</h1>
-    <p class="mut">${esc(t('pinSub'))}</p>
-    <div class="pinrow" id="pinrow">${'<input inputmode="numeric" maxlength="1" pattern="[0-9]">'.repeat(6)}</div>
-    <button onclick="submitPin()">${esc(t('pinBtn'))}</button>
-    <p class="small mut">${esc(t('demoLive'))} →</p>
+    <div class="masthead">
+      <div class="orgline">Centro de Formularios · CERT</div>
+      <h1>&#129682; Tablilla</h1>
+      <div class="sub">${esc(t('appName'))}</div>
+    </div>
+    <div class="pin-label">${esc(t('pinTitle'))}</div>
+    <div class="pinrow" id="pinrow">${'<input inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="off">'.repeat(6)}</div>
+    <div class="keypad" role="group" aria-label="Teclado num&eacute;rico">
+      <button type="button" onclick="pinKey('1')">1</button><button type="button" onclick="pinKey('2')">2</button><button type="button" onclick="pinKey('3')">3</button>
+      <button type="button" onclick="pinKey('4')">4</button><button type="button" onclick="pinKey('5')">5</button><button type="button" onclick="pinKey('6')">6</button>
+      <button type="button" onclick="pinKey('7')">7</button><button type="button" onclick="pinKey('8')">8</button><button type="button" onclick="pinKey('9')">9</button>
+      <button type="button" class="fn" onclick="pinClear()">${esc(LANG==='es'?'Borrar':'Clear')}</button><button type="button" onclick="pinKey('0')">0</button><button type="button" class="fn" onclick="pinBack()">&#9003;</button>
+    </div>
+    <button class="warn" onclick="submitPin()">${esc(t('pinBtn'))}</button>
     <button class="sec" onclick="enterDemo()">${esc(t('demoLive'))}</button>
+    <p class="mut small">${esc(t('pinSub'))}</p>
+    <div class="offline">&#9673; ${esc(LANG==='es'?'Sin conexi\u00f3n \u2014 los datos se guardan en el dispositivo<br>y se sincronizan cuando haya red.':'Offline \u2014 data stays on this device<br>and syncs when a network returns.')}</div>
   </div>`;
   const boxes = [...document.querySelectorAll('#pinrow input')];
   boxes.forEach((b, i) => {
@@ -266,6 +277,24 @@ async function submitPin() {
   if (await checkPin(pin)) {
     sessionStorage.setItem('cfc_unlocked', '1'); pokeLock(); renderMode();
   } else toast(t('pinBad'));
+}
+function pinKey(d) { // on-screen keypad feeds the same #pinrow inputs as a hardware keyboard
+  const boxes = [...document.querySelectorAll('#pinrow input')];
+  const i = boxes.findIndex(b => !b.value);
+  if (i < 0) return;
+  boxes[i].value = d;
+  if (i < 5) boxes[i+1].focus(); else submitPin();
+}
+function pinBack() {
+  const boxes = [...document.querySelectorAll('#pinrow input')];
+  for (let i = boxes.length - 1; i >= 0; i--) {
+    if (boxes[i].value) { boxes[i].value = ''; boxes[i].focus(); return; }
+  }
+  boxes[0].focus();
+}
+function pinClear() {
+  const boxes = [...document.querySelectorAll('#pinrow input')];
+  boxes.forEach(b => b.value = ''); boxes[0].focus();
 }
 
 /* ---------- view: mode choice ---------- */
@@ -335,9 +364,15 @@ let incUnsub = null;
 function renderIncidents() {
   S.view = 'incidents'; S.incidentId = null; S.incident = null; stopDemo();
   setHash('');
+  const qlen = outbox().length;
   app().innerHTML = chrome(`${esc(t('appName'))} · ${esc(S.actor||'')}`, {lock:true}) + `
-  <div class="card"><div class="row"><h2 style="margin:0">${esc(t('incidents'))}</h2>
-    <button style="flex:0" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button></div>
+  <div class="card">
+    <div class="masthead">
+      <div class="orgline">Centro de Formularios · CERT</div>
+      <h2>${esc(t('incidents'))}</h2>
+    </div>
+    ${qlen ? `<div class="sync-strip"><span>&#9673; ${qlen} ${esc(LANG==='es'?'formularios por sincronizar':'forms pending sync')}</span><span>&rarr;</span></div>` : ''}
+    <button class="warn" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button>
     <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
   if (!FB_OK) { $('inclist').innerHTML = `<p class="mut">offline</p>`; return; }
   if (incUnsub) { try{incUnsub();}catch(e){} }
@@ -422,10 +457,15 @@ function drawDashShell() {
   const i = S.incident;
   app().innerHTML = chrome(`📋 ${esc(i.name_es || S.incidentId)}`, {lock:true}) + `
   <div class="card">
+    <div class="masthead">
+      <div class="orgline">Centro de Formularios · CERT</div>
+      <h2>${esc(i.name_es || S.incidentId)}</h2>
+      <div class="sub">${esc(t('dashboard'))}</div>
+    </div>
     <div class="kv"><dt>${esc(t('date'))}</dt><dd>${esc(i.date||'')}</dd>
     <dt>${esc(t('kind'))}</dt><dd>${esc(i.kind==='real'?t('real'):t('exercise'))}</dd>
     <dt>${esc(t('status'))}</dt><dd>${esc(i.status||'')}</dd></div>
-    <button onclick="renderTemplates()">${esc(t('fill'))}</button>
+    <button class="warn" onclick="renderTemplates()">${esc(t('fill'))}</button>
     <button class="sec" onclick="renderScans()">${esc(t('uploadScan'))}</button>
     <button class="ghost" onclick="renderIncidents()">${esc(t('back'))}</button>
   </div>
@@ -513,15 +553,15 @@ function fieldInput(f, prefix, val) {
   if (f.type === 'textarea') ctrl = `<textarea id="${id}" data-f="${esc(f.name)}">${esc(v)}</textarea>`;
   else if (f.type === 'select') ctrl = `<select id="${id}" data-f="${esc(f.name)}"><option value=""></option>` +
     f.options.map(o => `<option value="${esc(o.value)}" ${o.value===v?'selected':''}>${esc(LANG==='es'?o.label:o.label_en)}</option>`).join('') + `</select>`;
-  else if (f.type === 'checkbox') ctrl = `<input type="checkbox" id="${id}" data-f="${esc(f.name)}" ${v?'checked':''} style="width:auto;transform:scale(1.4);margin:8px">`;
-  else if (f.type === 'signature') ctrl = `<canvas class="sig" id="${id}" data-f="${esc(f.name)}"></canvas><div class="small mut">${esc(t('signHere'))}</div>`;
+  else if (f.type === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" data-f="${esc(f.name)}" ${v?'checked':''}>`;
+  else if (f.type === 'signature') ctrl = `<div class="signbox"><canvas class="sig" id="${id}" data-f="${esc(f.name)}"></canvas><div class="xline"></div><div class="cap">${esc(t('signHere'))}</div></div>`;
   else {
     const map = {date:'date', time:'time', datetime:'datetime-local', number:'number'};
     ctrl = `<input type="${map[f.type]||'text'}" id="${id}" data-f="${esc(f.name)}" value="${esc(v)}">`;
   }
-  return `<div><label class="f" for="${id}">${LBL(f)}${req}</label>${ctrl}</div>`;
+  return `<div class="field"><label class="f" for="${id}">${LBL(f)}${req}</label>${ctrl}</div>`;
 }
-function tableHtml(tb, prefix, rows) {
+function tableHtml(tb, prefix, rows, sec) {
   const n = Math.max(rows ? rows.length : 0, 3);
   let head = tb.columns.map(c => `<th>${LBL(c)}</th>`).join('') + `<th></th>`;
   let body = '';
@@ -533,15 +573,15 @@ function tableHtml(tb, prefix, rows) {
       let ctrl;
       if (c.type === 'select') ctrl = `<select id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}"><option value=""></option>` +
         c.options.map(o => `<option value="${esc(o.value)}" ${o.value===v?'selected':''}>${esc(LANG==='es'?o.label:o.label_en)}</option>`).join('') + `</select>`;
-      else if (c.type === 'checkbox') ctrl = `<input type="checkbox" id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" ${v?'checked':''} style="transform:scale(1.3)">`;
+      else if (c.type === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" ${v?'checked':''}>`;
       else ctrl = `<input id="${id}" data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`;
       body += `<td>${ctrl}</td>`;
     }
     body += `<td><button class="ghost" type="button" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
   }
-  return `<h3>${esc(LANG==='es'?tb.label:tb.label_en)}</h3>
+  return `<div class="fsection"><span class="section-tag">${sec?`<span class="n">${esc(sec)}</span>`:''}${esc(LANG==='es'?tb.label:tb.label_en)}</span>
   <table class="form" id="${prefix}__tbl__${esc(tb.name)}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-  <button class="sec small" type="button" onclick="addTableRow('${prefix}','${esc(tb.name)}')">${esc(t('addRow'))}</button>`;
+  <button class="sec small" type="button" onclick="addTableRow('${prefix}','${esc(tb.name)}')">${esc(t('addRow'))}</button></div>`;
 }
 function addTableRow(prefix, tname) {
   const tbl = $(prefix + '__tbl__' + tname);
@@ -622,17 +662,28 @@ async function renderFill(tplId) {
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button></div>`; return; }
   curForm = parseForm(xml);
   const f = curForm, P = 'fld';
+  const pad = n => String(n).padStart(2, '0');
+  const footNonsig = f.footer.filter(x => x.type !== 'signature');
+  const footSig = f.footer.filter(x => x.type === 'signature');
+  const secClose = pad(2 + f.tables.length), secSign = pad(3 + f.tables.length);
   app().innerHTML = chrome(`📝 ${esc(LANG==='es'?f.title:f.title_en)}`, {lock:true}) + `
   <div class="card screen-only">
-    <label class="f">${esc(t('team'))}</label><input id="sub-team" maxlength="60" value="Equipo 2">
-    ${f.header.map(x => fieldInput(x, P)).join('')}
-    ${f.tables.map(tb => tableHtml(tb, P)).join('')}
-    ${f.footer.filter(x => x.type !== 'signature').map(x => fieldInput(x, P)).join('')}
-    ${f.footer.filter(x => x.type === 'signature').map(x => fieldInput(x, P)).join('')}
-    ${f.footer.some(x => x.type === 'signature') ? `<button class="sec small" type="button" onclick="clearSigs()">${esc(t('clear'))}</button>` : ''}
+    <div class="formid"><span>N.&ordm; ${esc(f.id)} &middot; v${esc(String(f.version||1))}</span><span>${esc(LANG==='es'?'Diligenciar':'Fill out')}</span></div>
+    <div class="masthead">
+      <div class="orgline">Centro de Formularios &middot; CERT</div>
+      <h2>${esc(LANG==='es'?f.title:f.title_en)}</h2>
+      <div class="sub">${esc(t('fill'))}</div>
+    </div>
+    <div class="fsection"><span class="section-tag"><span class="n">01</span>${esc(LANG==='es'?'Datos generales':'General info')}</span>
+      <div class="field"><label class="f" for="sub-team">${esc(t('team'))}</label><input id="sub-team" maxlength="60" value="Equipo 2"></div>
+      ${f.header.map(x => fieldInput(x, P)).join('')}
+    </div>
+    ${f.tables.map((tb, i) => tableHtml(tb, P, null, pad(i + 2))).join('')}
+    ${footNonsig.length ? `<div class="fsection"><span class="section-tag"><span class="n">${secClose}</span>${esc(LANG==='es'?'Cierre':'Closing')}</span>${footNonsig.map(x => fieldInput(x, P)).join('')}</div>` : ''}
+    ${footSig.length ? `<div class="fsection"><span class="section-tag"><span class="n">${secSign}</span>${esc(t('signature'))}</span>${footSig.map(x => fieldInput(x, P)).join('')}<button class="sec small" type="button" onclick="clearSigs()">${esc(t('clear'))}</button></div>` : ''}
     <hr>
-    <button onclick="saveSubmission('draft')">${esc(t('submitDraft'))}</button>
-    <button onclick="saveSubmission('signed')">${esc(t('submitSigned'))}</button>
+    <button class="warn" onclick="saveSubmission('signed')">${esc(t('submitSigned'))}</button>
+    <button class="sec" onclick="saveSubmission('draft')">${esc(t('submitDraft'))}</button>
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button>
   </div>` + footnav('incidents');
   document.querySelectorAll('canvas.sig').forEach(wireSig);
@@ -680,7 +731,13 @@ async function renderSubmission(id) {
   }).join('');
   app().innerHTML = chrome(`📄 ${esc(name)}`, {lock:true}) + `
   <div class="card print-area">
-    <h2>${esc(name)}</h2>
+    ${s.demo === true ? `<span class="stamp red demo-corner">Demo</span>` : ''}
+    <div class="formid"><span>N.&ordm; ${esc(s.templateId||'')}</span><span>${fmtT(s.createdAt)}</span></div>
+    <div class="masthead">
+      <div class="orgline">Centro de Formularios · CERT</div>
+      <h2>${esc(name)}</h2>
+      <div class="sub"><span class="stamp ${s.status==='signed'?'red':'amber'}" style="font-size:15px">${esc(s.status==='signed'?t('signed'):t('draft'))}</span></div>
+    </div>
     <div class="kv">
       <dt>${esc(t('incidents'))}</dt><dd>${esc(S.incident ? S.incident.name_es : (s.incidentId||''))}</dd>
       <dt>${esc(t('team'))}</dt><dd>${esc(s.team||'')}</dd>
@@ -754,8 +811,15 @@ function enterDemo() { S.view = 'demo'; stopListeners(); renderDemoView(); start
 async function renderDemoView() {
   S.view = 'demo'; S.demoView = true; setHash(routeFor('demo'));
   app().innerHTML = chrome(`🎭 ${esc(t('demoView'))}`, {demo:true}) + `
-  <div class="demo-banner">${esc(t('demoBanner'))}</div>
-  <div class="card"><p class="small mut">${esc(t('simOn'))}</p>
+  <div class="card">
+    <span class="stamp red demo-corner">Demo</span>
+    <div class="masthead">
+      <div class="orgline">Centro de Formularios · CERT</div>
+      <h2>${esc(t('demoView'))}</h2>
+      <div class="sub">${esc(LANG==='es'?'Datos simulados, no reales':'Simulated data, not real')}</div>
+    </div>
+    <div class="demo-banner"><span class="stamp red">Demo</span></div>
+    <p class="small mut">${esc(t('simOn'))}</p>
     <button class="ghost" onclick="exitDemo()">${unlocked() ? esc(t('back')) : esc(t('close'))}</button></div>
   <div class="card"><h3>${esc(t('teams'))} <span class="badge demo">DEMO</span></h3><div id="demo-teams"><p class="mut small">${esc(t('loading'))}</p></div></div>
   <div class="card"><h3>${esc(t('submissions'))} <span class="badge demo">DEMO</span></h3><div id="demo-subs"><p class="mut small">${esc(t('loading'))}</p></div></div>
@@ -955,7 +1019,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 /* expose handlers used by inline onclick */
-Object.assign(window, { submitPin, toggleLang, doLock, renderMode, modeKiosk, modePersonal,
+Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock, renderMode, modeKiosk, modePersonal,
   startKiosk, doLogin, doRegister, exitMode, go, renderIncidents, renderNewIncident,
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
   clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
