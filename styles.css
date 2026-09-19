@@ -150,6 +150,9 @@ select,textarea{
 }
 input:focus,select:focus,textarea:focus{
   border-color:var(--red);box-shadow:3px 3px 0 var(--red-wash)}
+/* foco visible para teclado en todos los botones (WCAG 2.4.7): ámbar peligroso sobre negro */
+button:focus-visible,a:focus-visible,[role="button"]:focus-visible{
+  outline:3px solid var(--amber);outline-offset:2px;box-shadow:3px 3px 0 var(--ink)}
 input[type="checkbox"].tickbox,input[type="checkbox"]{
   width:44px;height:44px;min-height:44px;accent-color:var(--red);
   border:2px solid var(--ink);margin:8px 4px 8px 0;vertical-align:middle}
