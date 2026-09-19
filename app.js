@@ -708,7 +708,11 @@ async function saveSubmission(status) {
   toast(t('saved')); S.submissionId = id; renderSubmission(id);
 }
 
-/* ---------- view: submission detail + print ---------- */
+/* Strict allowlist for stored data-URL images: only our own signature-pad
+   output (png/jpeg base64, no quotes or exotic chars) may become <img>.
+   Anything else falls back to escaped text — never raw HTML. */
+const IMG_DATAURL_RE = /^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/;
+const safeImg = v => typeof v === 'string' && v.length < 1200000 && IMG_DATAURL_RE.test(v);
 function openSubmission(id) { S.submissionId = id; S.view = 'submission'; stopDemo(); renderSubmission(id); }
 async function renderSubmission(id) {
   S.view = 'submission';
@@ -720,7 +724,7 @@ async function renderSubmission(id) {
   const name = tplName(s.templateId);
   const fv = s.fieldValues || {};
   const rows = Object.entries(fv).map(([k, v]) => {
-    const disp = typeof v === 'string' && v.startsWith('data:image') ? `<img src="${v}" style="max-width:220px;border:1px solid var(--line)">` : esc(v === true ? '✓' : v === false ? '✗' : v);
+    const disp = safeImg(v) ? `<img src="${v}" style="max-width:220px;border:1px solid var(--line)">` : esc(v === true ? '✓' : v === false ? '✗' : v);
     return `<div class="kv"><dt><b>${esc(k)}</b></dt><dd class="pv">${disp}</dd></div>`;
   }).join('');
   const trows = Object.entries(s.tables || {}).map(([tn, arr]) => {
