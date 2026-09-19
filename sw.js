@@ -1,5 +1,5 @@
 /* CERT Forms Center service worker — offline app shell + form templates */
-const CACHE = 'cfc-v1';
+const CACHE = 'cfc-v2';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './forms/manifest.json',
   './forms/damage_assessment.xml', './forms/personnel_signin.xml',

@@ -207,6 +207,7 @@ function doLock() {
   sessionStorage.removeItem('cfc_unlocked');
   sessionStorage.removeItem('cfc_kiosk');
   S.mode = null; S.actor = null; stopDemo(); stopListeners();
+  pendingRoute = null; setHash('');
   renderPin();
 }
 ['pointerdown','keydown','touchstart'].forEach(ev =>
@@ -291,7 +292,7 @@ function startKiosk() {
   const name = ($('kname').value || 'Giulia').trim() || 'Giulia';
   S.mode = 'kiosk'; S.actor = name; sessionStorage.setItem('cfc_kiosk', name);
   audit('mode.kiosk', 'sessions', null).catch(()=>{});
-  go('incidents');
+  resumePending();
 }
 function modePersonal() {
   S.view = 'personal';
@@ -309,7 +310,7 @@ async function doLogin() {
     const u = await auth.signInWithEmailAndPassword($('pemail').value.trim(), $('ppass').value);
     S.mode = 'personal'; S.actor = u.user.email + ' (' + u.user.uid + ')'; S.uid = u.user.uid;
     audit('auth.login', 'sessions', u.user.uid).catch(()=>{});
-    go('incidents');
+    resumePending();
   } catch (e) {
     toast(e.code === 'auth/operation-not-allowed' ? t('authOff') : t('authErr'));
   }
@@ -319,7 +320,7 @@ async function doRegister() {
     const u = await auth.createUserWithEmailAndPassword($('pemail').value.trim(), $('ppass').value);
     S.mode = 'personal'; S.actor = u.user.email + ' (' + u.user.uid + ')'; S.uid = u.user.uid;
     audit('auth.register', 'sessions', u.user.uid).catch(()=>{});
-    go('incidents');
+    resumePending();
   } catch (e) {
     toast(e.code === 'auth/operation-not-allowed' ? t('authOff') : t('authErr'));
   }
@@ -333,6 +334,7 @@ async function exitMode() {
 let incUnsub = null;
 function renderIncidents() {
   S.view = 'incidents'; S.incidentId = null; S.incident = null; stopDemo();
+  setHash('');
   app().innerHTML = chrome(`${esc(t('appName'))} · ${esc(S.actor||'')}`, {lock:true}) + `
   <div class="card"><div class="row"><h2 style="margin:0">${esc(t('incidents'))}</h2>
     <button style="flex:0" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button></div>
@@ -374,7 +376,7 @@ async function createIncident() {
 }
 
 /* ---------- view: incident dashboard ---------- */
-function openIncident(id) { S.incidentId = id; S.view = 'dashboard'; stopDemo(); renderDashboard(); }
+function openIncident(id) { S.incidentId = id; S.view = 'dashboard'; stopDemo(); setHash(routeFor('incident', id)); renderDashboard(); }
 function renderDashboard() {
   stopListeners();
   app().innerHTML = chrome(`📋 ${esc(t('dashboard'))}`, {lock:true}) + `
@@ -611,7 +613,7 @@ async function renderTemplates() {
 /* ---------- view: fill form ---------- */
 let curForm = null;
 async function renderFill(tplId) {
-  S.view = 'fill'; S.templateId = tplId;
+  S.view = 'fill'; S.templateId = tplId; setHash(routeFor('form', S.incidentId, tplId));
   app().innerHTML = chrome(t('fill'), {lock:true}) + `
   <div class="card"><p class="mut">${esc(t('loading'))}</p></div>` + footnav('incidents');
   let xml;
@@ -750,7 +752,7 @@ const DEMO_FILLER = [
 let demoStep = 0;
 function enterDemo() { S.view = 'demo'; stopListeners(); renderDemoView(); startDemoSim(); }
 async function renderDemoView() {
-  S.view = 'demo'; S.demoView = true;
+  S.view = 'demo'; S.demoView = true; setHash(routeFor('demo'));
   app().innerHTML = chrome(`🎭 ${esc(t('demoView'))}`, {demo:true}) + `
   <div class="demo-banner">${esc(t('demoBanner'))}</div>
   <div class="card"><p class="small mut">${esc(t('simOn'))}</p>
@@ -808,6 +810,124 @@ function startDemoSim() {
   S.demoTimer = setInterval(demoTick, DEMO_TICK_MS);
 }
 
+/* ---------- deep links: hash routing ---------- */
+/* __HASH_ROUTER_START__ */
+function parseHash(hash) {
+  // Pure: '#/incident/{id}' | '#/incident/{id}/form/{tpl}' | '#/demo' | '' | garbage
+  // -> {route:'demo'} | {route:'incident',incidentId} | {route:'form',incidentId,templateId}
+  //    | {route:'none'} | {route:'invalid'}
+  let h = String(hash || '');
+  if (h.charAt(0) === '#') h = h.slice(1);
+  h = h.split('?')[0]; // ignore query junk
+  if (!h || h === '/') return { route: 'none' };
+  if (h.charAt(0) === '/') h = h.slice(1);
+  let parts;
+  try { parts = h.split('/').map(p => decodeURIComponent(p)); }
+  catch (e) { return { route: 'invalid' }; }
+  if (parts[0] === 'demo' && parts.length === 1) return { route: 'demo' };
+  if (parts[0] === 'incident' && parts.length === 2 && parts[1])
+    return { route: 'incident', incidentId: parts[1] };
+  if (parts[0] === 'incident' && parts.length === 4 && parts[1] && parts[2] === 'form' && parts[3])
+    return { route: 'form', incidentId: parts[1], templateId: parts[3] };
+  return { route: 'invalid' };
+}
+function routeFor(kind, a, b) {
+  if (kind === 'demo') return '#/demo';
+  if (kind === 'form')
+    return '#/incident/' + encodeURIComponent(a) + '/form/' + encodeURIComponent(b);
+  return '#/incident/' + encodeURIComponent(a);
+}
+/* __HASH_ROUTER_END__ */
+let pendingRoute = null;   // deep link waiting on PIN gate / mode choice
+let suppressHash = false;  // set while writing hash ourselves (no loop)
+
+function setHash(h) {
+  if (location.hash === h) return;
+  suppressHash = true;
+  location.hash = h;
+}
+function routeFromHash(initial) {
+  const r = parseHash(location.hash);
+  switch (r.route) {
+    case 'none':
+      // browser back out of a deep view -> incidents list (or PIN gate)
+      if (!initial && (S.view === 'dashboard' || S.view === 'fill' || S.view === 'error')) {
+        if (unlocked() && S.mode) renderIncidents(); else renderPin();
+        return true;
+      }
+      return false;
+    case 'demo':
+      enterDemo();
+      return true;
+    case 'incident':
+      openIncidentRoute(r.incidentId);
+      return true;
+    case 'form':
+      openFormRoute(r.incidentId, r.templateId);
+      return true;
+    default: // 'invalid'
+      renderRouteError('hash');
+      return true;
+  }
+}
+window.addEventListener('hashchange', () => {
+  if (suppressHash) { suppressHash = false; return; }
+  routeFromHash(false);
+});
+function resumePending() {
+  const p = pendingRoute; pendingRoute = null;
+  if (!p) { go('incidents'); return; }
+  if (p.type === 'form') openFormRoute(p.incidentId, p.templateId);
+  else openIncidentRoute(p.incidentId);
+}
+async function openIncidentRoute(id) {
+  if (id === DEMO_ORG_ID) { enterDemo(); return; } // demo org -> live demo view (quarantine intact)
+  if (!unlocked()) { pendingRoute = { type: 'incident', incidentId: id }; renderPin(); return; }
+  if (!S.mode) { pendingRoute = { type: 'incident', incidentId: id }; renderMode(); return; }
+  setHash(routeFor('incident', id));
+  if (S.view === 'dashboard' && S.incidentId === id) return; // already here (back/forward)
+  if (!FB_OK) { renderRouteError('offline'); return; }
+  try {
+    const d = await db.collection('incidents').doc(id).get();
+    if (!d.exists || (d.data() || {}).demo === true) { renderRouteError('incident'); return; }
+  } catch (e) { renderRouteError('offline'); return; }
+  S.incidentId = id; S.view = 'dashboard'; stopDemo(); renderDashboard();
+}
+async function openFormRoute(incidentId, templateId) {
+  if (incidentId === DEMO_ORG_ID) { enterDemo(); return; }
+  if (!unlocked()) { pendingRoute = { type: 'form', incidentId, templateId }; renderPin(); return; }
+  if (!S.mode) { pendingRoute = { type: 'form', incidentId, templateId }; renderMode(); return; }
+  setHash(routeFor('form', incidentId, templateId));
+  if (S.view === 'fill' && S.incidentId === incidentId && S.templateId === templateId) return;
+  if (!FB_OK) { renderRouteError('offline'); return; }
+  try {
+    const d = await db.collection('incidents').doc(incidentId).get();
+    if (!d.exists || (d.data() || {}).demo === true) { renderRouteError('incident'); return; }
+  } catch (e) { renderRouteError('offline'); return; }
+  const m = await loadManifest();
+  if (!m.find(x => x.id === templateId)) { renderRouteError('template'); return; }
+  S.incidentId = incidentId; stopDemo(); renderFill(templateId);
+}
+function renderRouteError(kind) {
+  // ES-first: friendly Spanish error, never a blank screen
+  S.view = 'error'; S.routeErr = kind; stopDemo();
+  const msg = kind === 'template' ? 'Plantilla no encontrada'
+    : kind === 'offline' ? 'Sin conexión'
+    : kind === 'hash' ? 'Enlace no válido'
+    : 'Incidente no encontrado';
+  const sub = kind === 'offline'
+    ? 'No se pudo cargar. Revise su conexión e inténtelo de nuevo.'
+    : 'Revise el enlace e inténtelo de nuevo.';
+  app().innerHTML = chrome(t('appName')) + `
+  <div class="card center"><h2>⚠️ ${esc(msg)}</h2>
+  <p class="mut">${esc(sub)}</p>
+  <button onclick="exitRouteError()">${esc(t('back'))}</button></div>`;
+}
+function exitRouteError() {
+  setHash('');
+  if (unlocked() && S.mode) renderIncidents(); else renderPin();
+}
+
 /* ---------- router + boot ---------- */
 function render() {
   pokeLock();
@@ -819,19 +939,24 @@ function render() {
     case 'incidents': return renderIncidents();
     case 'demo': return renderDemoView();
     case 'dashboard': return renderDashboard();
+    case 'error': return renderRouteError(S.routeErr || 'hash');
     default: return renderPin();
   }
 }
 window.addEventListener('DOMContentLoaded', () => {
   syncOutbox();
   const kiosk = sessionStorage.getItem('cfc_kiosk');
-  if (unlocked() && kiosk) { S.mode = 'kiosk'; S.actor = kiosk; S.view = 'incidents'; }
-  else if (unlocked()) S.view = 'mode';
-  render();
+  if (unlocked() && kiosk) { S.mode = 'kiosk'; S.actor = kiosk; }
+  if (!routeFromHash(true)) {
+    // no hash: existing behavior unchanged
+    if (unlocked() && S.mode) S.view = 'incidents';
+    else if (unlocked()) S.view = 'mode';
+    render();
+  }
 });
 /* expose handlers used by inline onclick */
 Object.assign(window, { submitPin, toggleLang, doLock, renderMode, modeKiosk, modePersonal,
   startKiosk, doLogin, doRegister, exitMode, go, renderIncidents, renderNewIncident,
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
   clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
-  enterDemo, exitDemo });
+  enterDemo, exitDemo, exitRouteError });
