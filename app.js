@@ -96,6 +96,8 @@ const STR = {
     actorName: "Nombre de quien llena", submitSigned: "Guardar y firmar",
     submitDraft: "Guardar borrador", tplFrom: "Plantilla",
     rows: "filas", signHere: "Firme aquí", tplFail: "No se pudo cargar la plantilla.",
+    signPadLabel: "Recuadro de firma. Dibuje con el dedo o el mouse, o escriba su nombre con el botón «Escribir nombre». Con teclado: las flechas dibujan y el Espacio activa el trazo.",
+    typeToSign: "Escribir nombre", typeNamePh: "Escriba su nombre para firmar",
     incCreated: "Incidente creado", fillRequired: "Complete los campos obligatorios.",
     sigRequired: "Se requiere firma para guardar firmado.",
     demoTeam1: "Equipo DEMO 1", demoTeam2: "Equipo DEMO 2",
@@ -170,6 +172,8 @@ const STR = {
     actorName: "Filler name", submitSigned: "Save and sign",
     submitDraft: "Save draft", tplFrom: "Template",
     rows: "rows", signHere: "Sign here", tplFail: "Could not load the template.",
+    signPadLabel: "Signature pad. Draw with finger or mouse, or type your name with the “Type name” button. Keyboard: arrow keys draw, Space toggles the pen.",
+    typeToSign: "Type name", typeNamePh: "Type your name to sign",
     incCreated: "Incident created", fillRequired: "Fill the required fields.",
     sigRequired: "Signature required to save as signed.",
     demoTeam1: "DEMO Team 1", demoTeam2: "DEMO Team 2",
@@ -816,7 +820,7 @@ function fieldInput(f, prefix, val) {
   else if (f.type === 'select') ctrl = `<select id="${id}" data-f="${esc(f.name)}"><option value=""></option>` +
     f.options.map(o => `<option value="${esc(o.value)}" ${o.value===v?'selected':''}>${esc(LANG==='es'?o.label:o.label_en)}</option>`).join('') + `</select>`;
   else if (f.type === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" data-f="${esc(f.name)}" ${v?'checked':''}>`;
-  else if (f.type === 'signature') ctrl = `<div class="signbox"><canvas class="sig" id="${id}" data-f="${esc(f.name)}"></canvas><div class="xline"></div><div class="cap">${esc(t('signHere'))}</div></div>`;
+  else if (f.type === 'signature') ctrl = `<div class="signbox"><canvas class="sig" id="${id}" data-f="${esc(f.name)}" tabindex="0" role="img" aria-label="${esc(t('signPadLabel'))}"></canvas><div class="xline"></div><div class="cap">${esc(t('signHere'))}</div></div><button class="ghost small" type="button" onclick="toggleSignType('${id}')">${esc(t('typeToSign'))}</button><input type="text" data-signinput="${id}" placeholder="${esc(t('typeNamePh'))}" aria-label="${esc(t('typeToSign'))}" maxlength="60" style="display:none">`;
   else {
     const map = {date:'date', time:'time', datetime:'datetime-local', number:'number'};
     ctrl = `<input type="${map[f.type]||'text'}" id="${id}" data-f="${esc(f.name)}" value="${esc(v)}">`;
@@ -961,22 +965,75 @@ function wireSig(canvas) {
   const start = e => { e.preventDefault(); drawing = true; stroked = false; [lx, ly] = pos(e); };
   const move = e => { if (!drawing) return; e.preventDefault(); const [x, y] = pos(e);
     ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(x, y); ctx.stroke(); lx = x; ly = y; stroked = true; };
-  const end = () => { if (!drawing) return; drawing = false;
-    // un tap sin trazos no emite firma: sigData queda intacto (o vacío), nunca un PNG en blanco
+  // commit: reduce a <1MB y guarda en sigData; solo si hubo trazo
+  // (nunca un PNG en blanco: un tap sin trazos no emite firma)
+  const commit = () => {
     if (!stroked) return;
-    // downscale to keep <1MB
     const small = document.createElement('canvas'); small.width = 480; small.height = 180;
     small.getContext('2d').drawImage(canvas, 0, 0, 480, 180);
     let url = small.toDataURL('image/png');
     if (url.length > 900000) url = small.toDataURL('image/jpeg', 0.7);
     sigData[canvas.id] = url;
   };
+  const end = () => { if (!drawing) return; drawing = false; commit(); };
   canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move);
   canvas.addEventListener('mouseup', end); canvas.addEventListener('mouseleave', end);
   canvas.addEventListener('touchstart', start, {passive:false});
   canvas.addEventListener('touchmove', move, {passive:false});
   canvas.addEventListener('touchend', end);
-  canvas._clear = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); delete sigData[canvas.id]; };
+  // teclado: el canvas es enfocable (tabindex/role/aria-label en fieldInput);
+  // las flechas dibujan con el trazo activo, Espacio lo alterna
+  let kx = 0, ky = 0, kInit = false, pen = false;
+  canvas.addEventListener('keydown', e => {
+    const r = canvas.getBoundingClientRect();
+    if (!kInit) { kx = r.width / 2; ky = r.height / 2; kInit = true; }
+    const step = 8, px = kx, py = ky;
+    if (e.key === 'ArrowLeft') kx -= step;
+    else if (e.key === 'ArrowRight') kx += step;
+    else if (e.key === 'ArrowUp') ky -= step;
+    else if (e.key === 'ArrowDown') ky += step;
+    else if (e.key === ' ' || e.key === 'Spacebar') { pen = !pen; e.preventDefault(); return; }
+    else return;
+    e.preventDefault();
+    kx = Math.max(0, Math.min(r.width, kx));
+    ky = Math.max(0, Math.min(r.height, ky));
+    if (pen) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(kx, ky); ctx.stroke(); stroked = true; commit(); }
+  });
+  canvas.addEventListener('blur', commit);
+  canvas._clear = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); delete sigData[canvas.id];
+    document.querySelectorAll(`[data-signinput="${canvas.id}"]`).forEach(i => { i.value = ''; i.style.display = 'none'; }); };
+}
+/* Alternativa de teclado a la firma dibujada: escribir el nombre lo
+   convierte en firma (trazo manuscrito) y la guarda en sigData, así un
+   usuario solo-teclado puede firmar y guardar como firmado. */
+function toggleSignType(id) {
+  const inp = document.querySelector(`[data-signinput="${id}"]`);
+  if (!inp) return;
+  const show = inp.style.display === 'none';
+  inp.style.display = show ? '' : 'none';
+  if (show) inp.focus();
+}
+function renderTypedSig(canvasId, name) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const clean = (name || '').trim();
+  const ctx2 = canvas.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const w = canvas.offsetWidth || 480, h = canvas.offsetHeight || 180;
+  ctx2.setTransform(1, 0, 0, 1, 0, 0);
+  ctx2.clearRect(0, 0, canvas.width, canvas.height);
+  ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (!clean) { delete sigData[canvasId]; return; } // nombre borrado: sin firma
+  const small = document.createElement('canvas'); small.width = 480; small.height = 180;
+  const c = small.getContext('2d');
+  c.fillStyle = '#111'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  let size = 72;
+  const font = s => `italic 700 ${s}px "Brush Script MT","Segoe Script","Comic Sans MS",cursive`;
+  c.font = font(size);
+  while (c.measureText(clean).width > 440 && size > 20) { size -= 4; c.font = font(size); }
+  c.fillText(clean, 240, 95);
+  sigData[canvasId] = small.toDataURL('image/png');
+  ctx2.drawImage(small, 0, 0, w, h); // eco visual en el recuadro
 }
 
 /* ---------- view: template picker ---------- */
@@ -1035,6 +1092,9 @@ async function renderFill(tplId) {
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button>
   </div>` + footnav('incidents');
   document.querySelectorAll('canvas.sig').forEach(wireSig);
+  document.querySelectorAll('[data-signinput]').forEach(inp => {
+    inp.addEventListener('input', () => renderTypedSig(inp.dataset.signinput, inp.value));
+  });
 }
 function clearSigs() { document.querySelectorAll('canvas.sig').forEach(c => c._clear && c._clear()); }
 /* Language toggle mid-fill: snapshot the draft, re-render, restore. */
