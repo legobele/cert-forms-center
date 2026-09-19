@@ -1,0 +1,41 @@
+// ============================================================================
+// cert-forms-center — Cloud Storage security rules (Phase 3 QA war draft)
+// Bucket: cert-forms-center.firebasestorage.app
+//
+// DEPLOYMENT — READ THIS FIRST:
+//   * Deploy target is the Firebase CONSOLE (Storage > Rules tab) or
+//     `firebase deploy --only storage`. This repo has NO CI wired for rules;
+//     the live ruleset is console-only.
+//   * This file preserves the currently-observed posture (public reads — the
+//     kiosk is unauthenticated and the app opens download URLs directly) and
+//     only ADDS the two server-side write constraints below. If the console
+//     ruleset restricts reads today, keep those restrictions instead of the
+//     `allow read: if true` lines.
+// ============================================================================
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Form templates — T34 follow-up.
+    // The app's bucket-first template loader would let a planted
+    // damage_assessment.xml shadow the live template for every user, so
+    // client writes are fully closed. Templates deploy via console/CI only.
+    // (Whether an authenticated write was possible was never probed — the
+    // probe was blocked — so this closes it either way.)
+    match /forms/templates/{f} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Scan uploads — the 10 MiB cap was client-side only (app.js uploadScan);
+    // a 12.6 MiB object reached the bucket via raw REST (Phase 2). Enforce
+    // the cap server-side. Reads stay public (see header note).
+    // OPERATOR: the existing 12.6 MiB object should be deleted/quarantined
+    // separately — rules don't retroactively shrink it.
+    match /forms/scans/{p=**} {
+      allow read: if true;
+      allow write: if request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}
