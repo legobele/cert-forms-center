@@ -1285,9 +1285,11 @@ async function uploadScan(subId) {
     // record the download URL so the scan can be opened later (it was write-only)
     let url = null;
     try { url = await storage.ref(path).getDownloadURL(); } catch (e) {}
-    try { await db.collection('scans').doc(scanId).update(url ? {status: 'done', downloadURL: url} : {status: 'done'}); } catch (e) {}
+    let metaErr = null;
+    try { await db.collection('scans').doc(scanId).update(url ? {status: 'done', downloadURL: url} : {status: 'done'}); } catch (e) { metaErr = e; }
     await audit('scan.upload', 'scans', scanId);
-    toast(t('scanOk'));
+    if (metaErr) toast(t('scanPending')); // el doc quedó sin URL: avisar pendiente, nunca «Escaneo subido»
+    else toast(t('scanOk'));
   }
   renderScans(subId);
 }
