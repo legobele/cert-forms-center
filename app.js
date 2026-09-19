@@ -91,6 +91,7 @@ const STR = {
     demoTeam1: "Equipo DEMO 1", demoTeam2: "Equipo DEMO 2",
     noAuth: "Sesión expirada, vuelva a entrar.",
     viewForm: "Ver", fieldValues: "Valores", loading: "Cargando…",
+    listenErr: "No se pudo cargar la lista. Revise su conexión.",
   },
   en: {
     appName: "CERT Forms Center",
@@ -149,6 +150,7 @@ const STR = {
     demoTeam1: "DEMO Team 1", demoTeam2: "DEMO Team 2",
     noAuth: "Session expired, sign in again.",
     viewForm: "View", fieldValues: "Values", loading: "Loading…",
+    listenErr: "Could not load the list. Check your connection.",
   }
 };
 let LANG = localStorage.getItem('cfc_lang') || 'es';
@@ -199,6 +201,10 @@ const S = {
   tplCache: {}, unsub: [], demoTimer: null,
 };
 function stopListeners() { S.unsub.forEach(u => { try { u(); } catch(e){} }); S.unsub = []; }
+/* onSnapshot error handler: replace the eternal "Cargando…" with an ES error. */
+const snapErr = elId => () => {
+  const el = $(elId); if (el) el.innerHTML = `<p class="mut">${esc(t('listenErr'))}</p>`;
+};
 function stopDemo() { if (S.demoTimer) { clearInterval(S.demoTimer); S.demoTimer = null; } }
 
 /* ---------- audit ---------- */
@@ -517,7 +523,7 @@ function renderIncidents() {
           <span class="small mut">${esc(i.date||'')} · ${esc(i.kind==='real'?t('real'):t('exercise'))} ·
           <span class="badge ${esc(i.status||'active')}">${esc(i.status==='archived'?t('archived'):t('active'))}</span></span>
         </a>`).join('') : `<p class="mut">${esc(t('noItems'))}</p>`;
-    }, () => { $('inclist').innerHTML = `<p class="mut">offline</p>`; }));
+    }, snapErr('inclist')));
 }
 function renderNewIncident() {
   S.view = 'newincident'; stopListeners();
@@ -569,7 +575,7 @@ function renderDashboard() {
           <dt><b>${esc(tm.name || tm.id)}</b></dt><dd>${esc(tm.status || '—')}</dd>
           <dt class="small">${esc(t('submittedBy'))}</dt><dd class="small mut">${esc(tm.actor||'—')} · ${fmtT(tm.at)}</dd>
         </div>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-    }));
+    }, snapErr('dash-teams')));
     // live: submissions
     S.unsub.push(db.collection('submissions').where('incidentId','==',S.incidentId)
       .orderBy('createdAt','desc').limit(30).onSnapshot(snap => {
@@ -580,7 +586,7 @@ function renderDashboard() {
             <b>${esc(tplName(r.templateId))}</b> <span class="badge ${r.status==='signed'?'signed':'draft'}">${esc(r.status==='signed'?t('signed'):t('draft'))}</span><br>
             <span class="small mut">${esc(r.team||'')} · ${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span>
           </a>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-      }));
+      }, snapErr('dash-subs')));
     // live: scans
     S.unsub.push(db.collection('scans').where('incidentId','==',S.incidentId)
       .orderBy('createdAt','desc').limit(30).onSnapshot(snap => {
@@ -590,7 +596,7 @@ function renderDashboard() {
           <div class="listitem"><b>📎 ${esc(r.fileName||r.id)}</b><br>
           <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
           : `<p class="mut small">${esc(t('noItems'))}</p>`;
-      }));
+      }, snapErr('dash-scans')));
   }).catch(() => { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p class="mut">offline</p></div>`; });
 }
 function drawDashShell() {
@@ -984,7 +990,7 @@ function renderScans(subId) {
         <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b><br>
         <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
         : `<p class="mut">${esc(t('noItems'))}</p>`;
-    }));
+    }, snapErr('scanlist')));
 }
 async function uploadScan(subId) {
   const f = $('scanfile').files[0];
@@ -1041,12 +1047,12 @@ async function renderDemoView() {
     .onSnapshot(snap => { const el = $('demo-teams'); if (!el) return;
       const rows = []; snap.forEach(x => rows.push({id:x.id, ...x.data()}));
       el.innerHTML = rows.length ? rows.map(tm => `<div class="kv"><dt><b>${esc(tm.name||tm.id)}</b></dt><dd>${esc(tm.status||'—')} <span class="small mut">· ${esc(tm.actor||'')}</span></dd></div>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-    }));
+    }, snapErr('demo-teams')));
   const demoList = (coll, elId) => S.unsub.push(db.collection(coll).where('demo','==',true)
     .orderBy('createdAt','desc').limit(20).onSnapshot(snap => { const el = $(elId); if (!el) return;
       const rows = []; snap.forEach(x => rows.push({id:x.id, ...x.data()}));
       el.innerHTML = rows.length ? rows.map(r => `<div class="listitem"><b>${esc(coll==='submissions'?tplName(r.templateId):(r.fileName||r.name||r.id))}</b> <span class="badge demo">DEMO</span><br><span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-    }));
+    }, snapErr(elId)));
   demoList('submissions', 'demo-subs'); demoList('scans', 'demo-scans');
 }
 function exitDemo() { stopDemo(); S.demoView = false; stopListeners(); unlocked() && S.mode ? go('incidents') : renderPin(); }
