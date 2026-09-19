@@ -636,6 +636,21 @@ async function createIncident() {
   toast(t('incCreated')); renderIncidents();
 }
 
+/* Registrar un equipo en el incidente real (tarjeta Equipos del tablero).
+   Antes el único escritor de teams era el simulador demo. */
+async function addTeam() {
+  const nameEl = $('team-name'), stEl = $('team-status');
+  const name = (nameEl.value || '').trim();
+  if (!name) { toast(t('teamNameReq')); nameEl.focus(); return; }
+  const data = { name, status: stEl.value, actor: S.actor, mode: S.mode, at: ts() };
+  const coll = 'incidents/' + S.incidentId + '/teams';
+  const {id, queued} = await writeDoc(coll, null, data, 'team.add'); // writeDoc forces demo:false
+  nameEl.value = ''; stEl.selectedIndex = 0;
+  if (queued) return; // offline: "encolado" toast already shown, audit deferred to sync
+  await audit('team.add', coll, id);
+  toast(t('teamAdded'));
+}
+
 /* ---------- view: incident dashboard ---------- */
 function openIncident(id) { S.incidentId = id; S.view = 'dashboard'; stopDemo(); setHash(routeFor('incident', id)); renderDashboard(); }
 function renderDashboard() {
@@ -696,7 +711,10 @@ function drawDashShell() {
     <button class="sec" onclick="renderScans()">${esc(t('uploadScan'))}</button>
     <button class="ghost" onclick="renderIncidents()">${esc(t('back'))}</button>
   </div>
-  <div class="card"><h3>${esc(t('teams'))}</h3><div id="dash-teams"><p class="mut small">${esc(t('loading'))}</p></div></div>
+  <div class="card"><h3>${esc(t('teams'))}</h3><div id="dash-teams"><p class="mut small">${esc(t('loading'))}</p></div>
+  <div class="field"><label class="f" for="team-name">${esc(t('teamName'))}</label><input id="team-name" maxlength="60" autocomplete="off"></div>
+  <div class="field"><label class="f" for="team-status">${esc(t('teamStatus'))}</label><select id="team-status">${t('simStatuses').map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select></div>
+  <button class="sec" onclick="once('addTeam',addTeam)">${esc(t('addTeam'))}</button></div>
   <div class="card"><h3>${esc(t('submissions'))}</h3><div id="dash-subs"><p class="mut small">${esc(t('loading'))}</p></div></div>
   <div class="card"><h3>${esc(t('scans'))}</h3><div id="dash-scans"><p class="mut small">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
 }
@@ -956,18 +974,18 @@ async function renderFill(tplId) {
   const secClose = pad(2 + f.tables.length), secSign = pad(3 + f.tables.length);
   app().innerHTML = chrome(`📝 ${esc(LANG==='es'?f.title:f.title_en)}`, {lock:true}) + `
   <div class="card screen-only">
-    <div class="formid"><span>N.&ordm; ${esc(f.id)} &middot; v${esc(String(f.version||1))}</span><span>${esc(LANG==='es'?'Diligenciar':'Fill out')}</span></div>
+    <div class="formid"><span>N.&ordm; ${esc(f.id)} &middot; v${esc(String(f.version||1))}</span><span>${esc(t('fillOut'))}</span></div>
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(LANG==='es'?f.title:f.title_en)}</h2>
       <div class="sub">${esc(t('fill'))}</div>
     </div>
-    <div class="fsection"><span class="section-tag"><span class="n">01</span>${esc(LANG==='es'?'Datos generales':'General info')}</span>
+    <div class="fsection"><span class="section-tag"><span class="n">01</span>${esc(t('secGeneral'))}</span>
       <div class="field"><label class="f" for="sub-team">${esc(t('team'))}</label><input id="sub-team" maxlength="60" value="${esc(t('teamDefault'))}"></div>
       ${f.header.map(x => fieldInput(x, P)).join('')}
     </div>
     ${f.tables.map((tb, i) => tableHtml(tb, P, null, pad(i + 2))).join('')}
-    ${footNonsig.length ? `<div class="fsection"><span class="section-tag"><span class="n">${secClose}</span>${esc(LANG==='es'?'Cierre':'Closing')}</span>${footNonsig.map(x => fieldInput(x, P)).join('')}</div>` : ''}
+    ${footNonsig.length ? `<div class="fsection"><span class="section-tag"><span class="n">${secClose}</span>${esc(t('secClosing'))}</span>${footNonsig.map(x => fieldInput(x, P)).join('')}</div>` : ''}
     ${footSig.length ? `<div class="fsection"><span class="section-tag"><span class="n">${secSign}</span>${esc(t('signature'))}</span>${footSig.map(x => fieldInput(x, P)).join('')}<button class="sec small" type="button" onclick="clearSigs()">${esc(t('clear'))}</button></div>` : ''}
     <hr>
     <button class="warn" onclick="once('saveSubmission',()=>saveSubmission('signed'))">${esc(t('submitSigned'))}</button>
@@ -1398,6 +1416,6 @@ window.addEventListener('DOMContentLoaded', () => {
 Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock, lockNow, renderMode, modeKiosk, modePersonal,
   startKiosk, doLogin, doRegister, exitMode, go, renderIncidents, renderNewIncident,
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
-  clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
+  addTeam, clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
   enterDemo, exitDemo, exitRouteError, restoreStashedDraft, discardStashedDraft, once,
   renderDemoView, renderScansList, retryList });
