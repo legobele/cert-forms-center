@@ -585,17 +585,22 @@ function tableHtml(tb, prefix, rows, sec) {
 }
 function addTableRow(prefix, tname) {
   const tbl = $(prefix + '__tbl__' + tname);
+  if (!tbl) return;
   const cols = [...tbl.querySelector('thead tr').children].length - 1;
-  const r = tbl.querySelectorAll('tbody tr').length;
+  // next row index = max existing + 1 (row count would collide after a ✕ delete)
+  const rs = [...tbl.querySelectorAll('tbody tr [data-r]')].map(el => +el.dataset.r);
+  const r = (rs.length ? Math.max(...rs) : -1) + 1;
   const tr = document.createElement('tr');
-  for (let i = 0; i < cols; i++) tr.insertAdjacentHTML('beforeend', `<td><input data-t="${esc(tname)}" data-r="${r}" data-c=""></td>`);
+  for (let i = 0; i < cols; i++)
+    tr.insertAdjacentHTML('beforeend', `<td><input id="${prefix}__${esc(tname)}__${r}__col${i}" data-t="${esc(tname)}" data-r="${r}" data-c="col${i}"></td>`);
   tr.insertAdjacentHTML('beforeend', `<td><button class="ghost" type="button" onclick="this.closest('tr').remove()">${t('delRow')}</button></td>`);
   tbl.querySelector('tbody').appendChild(tr);
 }
 function collectValues(prefix, form) {
   const values = {}, tables = {};
   const reqMissing = [];
-  document.querySelectorAll(`[id^="${prefix}__"]`).forEach(el => {
+  // id'd controls plus any id-less [data-t] row inputs (belt and braces)
+  document.querySelectorAll(`[id^="${prefix}__"],[data-t]`).forEach(el => {
     if (el.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : (el.tagName === 'CANVAS' ? sigData[el.id] || '' : el.value);
       values[el.dataset.f] = v;
