@@ -227,7 +227,7 @@ function doLock() {
   sessionStorage.removeItem('cfc_unlocked');
   sessionStorage.removeItem('cfc_kiosk');
   sessionStorage.removeItem('cfc_mode');
-  S.mode = null; S.actor = null; stopDemo(); stopListeners();
+  S.mode = null; S.actor = null; S.uid = null; stopDemo(); stopListeners();
   pendingRoute = null; setHash('');
   renderPin();
 }
