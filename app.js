@@ -24,6 +24,8 @@ const STR = {
     pinSub: "PIN de 6 dígitos. Se bloquea tras 10 min sin actividad.",
     pinBtn: "Desbloquear",
     pinBad: "PIN incorrecto",
+    pinLocked: "Demasiados intentos. Intente de nuevo en {s} s.",
+    pinIncomplete: "Ingrese los 6 dígitos del PIN.",
     chooseMode: "¿Cómo va a usar esto?",
     kiosk: "Quiosco", kioskSub: "Sesión compartida en este dispositivo",
     personal: "Personal", personalSub: "Entrar con su cuenta",
@@ -68,6 +70,8 @@ const STR = {
     pinSub: "6-digit PIN. Locks after 10 min of inactivity.",
     pinBtn: "Unlock",
     pinBad: "Wrong PIN",
+    pinLocked: "Too many attempts. Try again in {s} s.",
+    pinIncomplete: "Enter all 6 PIN digits.",
     chooseMode: "How will you use this?",
     kiosk: "Kiosk", kioskSub: "Shared session on this device",
     personal: "Personal", personalSub: "Sign in with your account",
@@ -219,6 +223,21 @@ async function checkPin(pin) {
   const h = await sha256hex(pin);
   return constEq(h, PIN_HASH);
 }
+/* PIN brute-force guard: 5 fallos -> 60 s de bloqueo */
+let pinFails = 0, pinLockUntil = 0;
+async function submitPin() {
+  const now = Date.now();
+  if (now < pinLockUntil) { toast(t('pinLocked').replace('{s}', String(Math.ceil((pinLockUntil - now) / 1000)))); return; }
+  const pin = [...document.querySelectorAll('#pinrow input')].map(b => b.value).join('');
+  if (pin.length !== 6) { toast(t('pinIncomplete')); return; }
+  if (await checkPin(pin)) {
+    pinFails = 0; pinLockUntil = 0;
+    sessionStorage.setItem('cfc_unlocked', '1'); pokeLock(); renderMode();
+  } else if (++pinFails >= 5) {
+    pinFails = 0; pinLockUntil = Date.now() + 60000;
+    toast(t('pinLocked').replace('{s}', '60'));
+  } else toast(t('pinBad'));
+}
 
 /* ---------- header/footer chrome ---------- */
 function chrome(titleHtml, opts = {}) {
@@ -270,13 +289,6 @@ function renderPin() {
     b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i-1].focus(); });
   });
   boxes[0].focus();
-}
-async function submitPin() {
-  const pin = [...document.querySelectorAll('#pinrow input')].map(b => b.value).join('');
-  if (pin.length !== 6) return;
-  if (await checkPin(pin)) {
-    sessionStorage.setItem('cfc_unlocked', '1'); pokeLock(); renderMode();
-  } else toast(t('pinBad'));
 }
 function pinKey(d) { // on-screen keypad feeds the same #pinrow inputs as a hardware keyboard
   const boxes = [...document.querySelectorAll('#pinrow input')];
