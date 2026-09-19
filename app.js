@@ -1064,6 +1064,11 @@ async function uploadScan(subId) {
     ['jpg','jpeg','png','gif','webp','pdf'].includes(ext);
   if (!okType) { toast(t('scanBadType')); return; }
   if (f.size > 10 * 1024 * 1024) { toast(t('scanTooBig')); return; }
+  // el content-type se deriva de la extensión validada, nunca del MIME que reporte
+  // el navegador: un «x.pdf» con type text/html se almacena como application/pdf
+  const mimeFor = {jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', pdf:'application/pdf'};
+  const contentType = mimeFor[ext] ||
+    ((f.type.startsWith('image/') || f.type === 'application/pdf') ? f.type : 'application/octet-stream');
   const base = subId || S.incidentId || 'misc';
   const path = `forms/scans/${base}/${Date.now()}_${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
   const meta = { incidentId: S.incidentId, submissionId: subId || null,
@@ -1075,7 +1080,7 @@ async function uploadScan(subId) {
   // 3. upload with one retry
   let putErr = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    try { await storage.ref(path).put(f); putErr = null; break; }
+    try { await storage.ref(path).put(f, {contentType}); putErr = null; break; }
     catch (e) { putErr = e; }
   }
   if (putErr) {
@@ -1142,7 +1147,7 @@ async function demoTick() {
       const statuses = t('simStatuses');
       await db.collection('incidents').doc(DEMO_ORG_ID).collection('teams').doc(teamId)
         .set({ name: actor, status: statuses[demoStep % 4], actor, at: ts(), demo: true });
-      await db.collection('audit').doc().set({ actor, mode:'demo', action:'demo.team_status', collection:'teams', docId: teamId, at: ts() });
+      await db.collection('audit').doc().set({ actor, mode:'demo', action:'demo.team_status', collection:'teams', docId: teamId, demo: true, at: ts() });
     } else if (kind === 1) { // submission with random template
       const f = DEMO_FILLER[demoStep % DEMO_FILLER.length];
       await db.collection('submissions').doc()
