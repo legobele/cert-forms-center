@@ -107,6 +107,8 @@ const STR = {
     orgline: "Centro de Formularios · CERT",
     pinClearBtn: "Borrar", pinPad: "Teclado numérico",
     fillOut: "Diligenciar", secGeneral: "Datos generales", secClosing: "Cierre",
+    offlineBanner: "Sin conexión — los datos se guardan en el dispositivo<br>y se sincronizan cuando haya red.",
+    formsPending: "formularios por sincronizar", demoSub: "Datos simulados, no reales",
   },
   en: {
     appName: "CERT Forms Center",
@@ -179,6 +181,8 @@ const STR = {
     orgline: "CERT Forms Center",
     pinClearBtn: "Clear", pinPad: "Numeric keypad",
     fillOut: "Fill out", secGeneral: "General info", secClosing: "Closing",
+    offlineBanner: "Offline — data stays on this device<br>and syncs when a network returns.",
+    formsPending: "forms pending sync", demoSub: "Simulated data, not real",
   }
 };
 let LANG = localStorage.getItem('cfc_lang') || 'es';
@@ -464,7 +468,7 @@ function renderPin() {
     <button class="warn" onclick="submitPin()">${esc(t('pinBtn'))}</button>
     <button class="sec" onclick="enterDemo()">${esc(t('demoLive'))}</button>
     <p class="mut small">${esc(t('pinSub'))}</p>
-    <div class="offline">&#9673; ${esc(LANG==='es'?'Sin conexi\u00f3n \u2014 los datos se guardan en el dispositivo<br>y se sincronizan cuando haya red.':'Offline \u2014 data stays on this device<br>and syncs when a network returns.')}</div>
+    <div class="offline">&#9673; ${esc(t('offlineBanner'))}</div>
   </div>`;
   const boxes = [...document.querySelectorAll('#pinrow input')];
   boxes.forEach((b, i) => {
@@ -599,7 +603,7 @@ function renderIncidents() {
     ${stashed ? `<div class="draft-banner"><p>⚠️ ${esc(t('draftFound'))}</p>
       <button class="sec small" onclick="restoreStashedDraft()">${esc(t('restore'))}</button>
       <button class="ghost small" onclick="discardStashedDraft()">${esc(t('discard'))}</button></div>` : ''}
-    ${qlen ? `<div class="sync-strip"><span>&#9673; ${qlen} ${esc(LANG==='es'?'formularios por sincronizar':'forms pending sync')}</span><span>&rarr;</span></div>` : ''}
+    ${qlen ? `<div class="sync-strip"><span>&#9673; ${qlen} ${esc(t('formsPending'))}</span><span>&rarr;</span></div>` : ''}
     <button class="warn" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button>
     <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
   if (!FB_OK) { $('inclist').innerHTML = `<p class="mut">${esc(t('routeErrOffline'))}</p>`; return; }
@@ -1213,7 +1217,7 @@ async function renderDemoView() {
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(t('demoView'))}</h2>
-      <div class="sub">${esc(LANG==='es'?'Datos simulados, no reales':'Simulated data, not real')}</div>
+      <div class="sub">${esc(t('demoSub'))}</div>
     </div>
     <div class="demo-banner"><span class="stamp red">Demo</span></div>
     <p class="small mut">${esc(t('simOn'))}</p>
