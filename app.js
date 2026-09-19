@@ -216,6 +216,12 @@ function pokeLock() {
   clearTimeout(lockTimer);
   lockTimer = setTimeout(doLock, LOCK_MIN * 60 * 1000);
 }
+/* Lock button: in personal mode this also signs the Firebase user out —
+   previously there was no way to close a personal session from the UI. */
+async function lockNow() {
+  if (S.mode === 'personal' && auth) { try { await auth.signOut(); } catch (e) {} }
+  doLock();
+}
 function doLock() {
   stashDraft(); // never vaporize an in-progress form silently
   sessionStorage.removeItem('cfc_unlocked');
@@ -270,7 +276,7 @@ function chrome(titleHtml, opts = {}) {
   return `<header class="top"><div class="t">${titleHtml}</div>` +
     (opts.demo ? `<span class="tag">DEMO</span>` : '') +
     `<button class="ghost" style="color:#fff" onclick="toggleLang()">${t('lang')}</button>` +
-    (opts.lock ? `<button class="ghost" style="color:#fff" onclick="doLock()">🔒 ${t('lock')}</button>` : '') +
+    (opts.lock ? `<button class="ghost" style="color:#fff" onclick="lockNow()">🔒 ${t('lock')}</button>` : '') +
     `</header>`;
 }
 function footnav(active) {
@@ -1164,7 +1170,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 /* expose handlers used by inline onclick */
-Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock, renderMode, modeKiosk, modePersonal,
+Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock, lockNow, renderMode, modeKiosk, modePersonal,
   startKiosk, doLogin, doRegister, exitMode, go, renderIncidents, renderNewIncident,
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
   clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
