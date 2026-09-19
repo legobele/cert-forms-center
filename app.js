@@ -665,7 +665,9 @@ async function renderTemplates() {
 
 /* ---------- view: fill form ---------- */
 let curForm = null;
+let fillToken = 0; // guards rapid template switching: stale awaits bail out
 async function renderFill(tplId) {
+  const tok = ++fillToken;
   S.view = 'fill'; S.templateId = tplId; setHash(routeFor('form', S.incidentId, tplId));
   app().innerHTML = chrome(t('fill'), {lock:true}) + `
   <div class="card"><p class="mut">${esc(t('loading'))}</p></div>` + footnav('incidents');
@@ -673,6 +675,7 @@ async function renderFill(tplId) {
   try { xml = await loadTemplateXml(tplId); }
   catch (e) { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button></div>`; return; }
+  if (tok !== fillToken) return; // superseded by a newer renderFill
   curForm = null;
   try { curForm = parseForm(xml); }
   catch (e) { // malformed XML: friendly error, never eternal "Cargando…"
