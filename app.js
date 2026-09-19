@@ -647,7 +647,7 @@ function renderDashboard() {
         const el = $('dash-scans'); if (!el) return;
         const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
         el.innerHTML = rows.length ? rows.map(r => `
-          <div class="listitem"><b>📎 ${esc(r.fileName||r.id)}</b><br>
+          <div class="listitem"><b>📎 ${esc(r.fileName||r.id)}</b>${r.downloadURL?` <a href="${esc(r.downloadURL)}" target="_blank" rel="noopener">🔗 ver</a>`:''}<br>
           <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
           : `<p class="mut small">${esc(t('noItems'))}</p>`;
       }, snapErr('dash-scans')));
@@ -1063,7 +1063,7 @@ function renderScans(subId) {
       const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
       const el = $('scanlist'); if (!el) return;
       el.innerHTML = rows.length ? rows.map(r => `
-        <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b>${r.status==='pending'?` <span class="badge">⏳ ${esc(t('pending'))}</span>`:''}<br>
+        <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b>${r.status==='pending'?` <span class="badge">⏳ ${esc(t('pending'))}</span>`:''}${r.downloadURL?` <a href="${esc(r.downloadURL)}" target="_blank" rel="noopener">🔗 ver</a>`:''}<br>
         <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
         : `<p class="mut">${esc(t('noItems'))}</p>`;
     }, snapErr('scanlist')));
