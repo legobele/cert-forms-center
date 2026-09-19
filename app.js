@@ -111,6 +111,19 @@ const STR = {
     fillOut: "Diligenciar", secGeneral: "Datos generales", secClosing: "Cierre",
     offlineBanner: "Sin conexión — los datos se guardan en el dispositivo<br>y se sincronizan cuando haya red.",
     formsPending: "formularios por sincronizar", demoSub: "Datos simulados, no reales",
+    linkBlocked: "Enlace bloqueado", loadMore: "Cargar más", searchPh: "Buscar incidentes…",
+    showing: "Mostrando {x} de {n}", searchScansPh: "Buscar escaneos…",
+    unsupportedType: "Tipo de campo no soportado",
+    bugReport: "Reportar un problema", bugTitle: "Título", bugTitlePh: "Resumen corto del problema",
+    bugSteps: "Pasos para reproducirlo", bugActual: "Qué pasó", bugExpected: "Qué esperaba",
+    bugSeverity: "Gravedad", bugArea: "Área", bugSubmit: "Enviar reporte",
+    bugSent: "Reporte enviado. ¡Gracias!", bugTriage: "Reportes abiertos",
+    bugTitleReq: "Escriba un título para el reporte.",
+    bugDesc: "Descripción", bugDescPh: "Describa el problema en detalle",
+    bugDescReq: "Escriba una descripción del problema.",
+    sevBlocker: "Bloqueador", sevMajor: "Mayor", sevMedium: "Medio",
+    sevMinor: "Menor", sevCritical: "Crítico",
+    areaForms: "Formularios", areaScans: "Escaneos", areaIncidents: "Incidentes", areaOther: "Otro",
   },
   en: {
     appName: "CERT Forms Center",
@@ -187,6 +200,19 @@ const STR = {
     fillOut: "Fill out", secGeneral: "General info", secClosing: "Closing",
     offlineBanner: "Offline — data stays on this device<br>and syncs when a network returns.",
     formsPending: "forms pending sync", demoSub: "Simulated data, not real",
+    linkBlocked: "Blocked link", loadMore: "Load more", searchPh: "Search incidents…",
+    showing: "Showing {x} of {n}", searchScansPh: "Search scans…",
+    unsupportedType: "Unsupported field type",
+    bugReport: "Report a problem", bugTitle: "Title", bugTitlePh: "Short problem summary",
+    bugSteps: "Steps to reproduce", bugActual: "What happened", bugExpected: "What I expected",
+    bugSeverity: "Severity", bugArea: "Area", bugSubmit: "Send report",
+    bugSent: "Report sent. Thank you!", bugTriage: "Open reports",
+    bugTitleReq: "Enter a title for the report.",
+    bugDesc: "Description", bugDescPh: "Describe the problem in detail",
+    bugDescReq: "Enter a description of the problem.",
+    sevBlocker: "Blocker", sevMajor: "Major", sevMedium: "Medium",
+    sevMinor: "Minor", sevCritical: "Critical",
+    areaForms: "Forms", areaScans: "Scans", areaIncidents: "Incidents", areaOther: "Other",
   }
 };
 let LANG = localStorage.getItem('cfc_lang') || 'es';
@@ -195,6 +221,18 @@ const t = k => (STR[LANG] && STR[LANG][k]) || STR.es[k] || k;
 /* ---------- utils ---------- */
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* T09: allowlist for attacker-influenced URLs — http/https only.
+   Anything else (javascript:, data:, …) renders as a blocked badge,
+   never as a clickable <a href>. */
+const safeUrl = u => {
+  try {
+    const p = new URL(String(u), location.origin).protocol;
+    return (p === 'http:' || p === 'https:') ? String(u) : '';
+  } catch (e) { return ''; }
+};
+/* Minor: incident kind may be unset on docs written out-of-band —
+   don't affirmatively mislabel them as "Ejercicio". */
+const kindLabel = k => k === 'real' ? t('real') : k === 'exercise' ? t('exercise') : '—';
 const app = () => $('app');
 function toast(msg) {
   document.querySelectorAll('.toast').forEach(e => e.remove());
@@ -275,7 +313,7 @@ function stopListeners() { S.unsub.forEach(u => { try { u(); } catch(e){} }); S.
    the case where the operator just created the missing index. */
 const RETRY_VIEW = { inclist:'renderIncidents', 'dash-teams':'renderDashboard', 'dash-subs':'renderDashboard',
   'dash-scans':'renderDashboard', scanlist:'renderScansList', 'demo-teams':'renderDemoView',
-  'demo-subs':'renderDemoView', 'demo-scans':'renderDemoView' };
+  'demo-subs':'renderDemoView', 'demo-scans':'renderDemoView', buglist:'renderBugTriage' };
 function renderScansList() { renderScans(S.scanSubId); }
 function retryList(elId) { const fn = RETRY_VIEW[elId] && window[RETRY_VIEW[elId]]; if (fn) fn(); }
 const snapErr = elId => err => {
@@ -593,9 +631,14 @@ async function exitMode() {
   S.mode = null; S.actor = null; S.uid = null; stopDemo(); renderMode();
 }
 
-/* ---------- view: incidents ---------- */
+/* ---------- view: incidents (paginado T27/T30 + búsqueda T31) ---------- */
+/* Cursor pagination: Firestore has no cheap offset, so pages advance with
+   startAfter(lastVisible). First page loads via get() (no eternal live
+   listener); the strip shows "showing X of N" from the count() aggregation. */
+const INC_PAGE = 50;
 function renderIncidents() {
   S.view = 'incidents'; S.incidentId = null; S.incident = null; stopDemo(); stopListeners();
+  S.incItems = []; S.incCursor = null; S.incDone = false; S.incQuery = ''; S.incTotal = null;
   setHash('');
   const qlen = outbox().length;
   const stashed = sessionStorage.getItem('cfc_draft');
@@ -610,19 +653,67 @@ function renderIncidents() {
       <button class="ghost small" onclick="discardStashedDraft()">${esc(t('discard'))}</button></div>` : ''}
     ${qlen ? `<div class="sync-strip"><span>&#9673; ${qlen} ${esc(t('formsPending'))}</span><span>&rarr;</span></div>` : ''}
     <button class="warn" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button>
-    <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
+    <button class="ghost small" onclick="renderBugReport()">🐞 ${esc(t('bugReport'))}</button>
+    <div class="field"><input type="search" id="incsearch" aria-label="${esc(t('searchPh'))}" placeholder="${esc(t('searchPh'))}" oninput="onIncSearch(this.value)"></div>
+    <div id="incstrip" class="small mut"></div>
+    <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div>
+    <button class="sec" id="incmore" style="display:none" onclick="moreIncidents()">${esc(t('loadMore'))}</button>
+  </div>` + footnav('incidents');
   if (!FB_OK) { $('inclist').innerHTML = `<p class="mut">${esc(t('routeErrOffline'))}</p>`; return; }
-  S.unsub.push(db.collection('incidents').orderBy('createdAt','desc').limit(50)
-    .onSnapshot(snap => {
-      const items = [];
-      snap.forEach(d => { const x = d.data(); if (x.demo === true) return; items.push({id:d.id, ...x}); });
-      $('inclist').innerHTML = items.length ? items.map(i => `
-        <a class="listitem" href="javascript:openIncident('${i.id}')">
-          <b>${esc(i.name_es || i.id)}</b><br>
-          <span class="small mut">${esc(i.date||'')} · ${esc(i.kind==='real'?t('real'):t('exercise'))} ·
-          <span class="badge ${esc(i.status||'active')}">${esc(i.status==='archived'?t('archived'):t('active'))}</span></span>
-        </a>`).join('') : `<p class="mut">${esc(t('noItems'))}</p>`;
-    }, snapErr('inclist')));
+  // total count, best-effort (includes demo:true docs; the strip is an indicator, not exact)
+  db.collection('incidents').count().get()
+    .then(c => { S.incTotal = c.data().count; drawIncList(); })
+    .catch(() => { S.incTotal = null; });
+  moreIncidents();
+}
+function onIncSearch(q) { S.incQuery = (q || '').trim().toLowerCase(); drawIncList(); }
+function incFiltered() {
+  const q = S.incQuery;
+  if (!q) return S.incItems;
+  return S.incItems.filter(i =>
+    String(i.name_es || '').toLowerCase().includes(q) ||
+    String(i.date || '').toLowerCase().includes(q) ||
+    String(i.kind || '').toLowerCase().includes(q) ||
+    String(i.status || '').toLowerCase().includes(q));
+}
+/* T09: rows no longer use javascript: URIs — data-open/data-id are dispatched
+   by the single delegated click listener (see boot section). */
+function drawIncList() {
+  const list = $('inclist'), strip = $('incstrip'), more = $('incmore');
+  if (!list) return;
+  const rows = incFiltered();
+  list.innerHTML = rows.length ? rows.map(i => `
+    <a class="listitem" href="#" data-open="incident" data-id="${esc(i.id)}">
+      <b>${esc(i.name_es || i.id)}</b><br>
+      <span class="small mut">${esc(i.date||'')} · ${esc(kindLabel(i.kind))} ·
+      <span class="badge ${esc(i.status||'active')}">${esc(i.status==='archived'?t('archived'):t('active'))}</span></span>
+    </a>`).join('') : `<p class="mut">${esc(t('noItems'))}</p>`;
+  if (strip) {
+    const n = S.incTotal == null ? '?' : S.incTotal;
+    strip.textContent = S.incItems.length || S.incTotal != null
+      ? t('showing').replace('{x}', String(rows.length)).replace('{n}', String(n)) : '';
+  }
+  if (more) more.style.display = (!S.incDone && !S.incQuery) ? '' : 'none';
+}
+async function moreIncidents() {
+  if (!FB_OK || S.incDone) return;
+  const more = $('incmore'); if (more) more.disabled = true;
+  try {
+    let q = db.collection('incidents').orderBy('createdAt','desc').limit(INC_PAGE);
+    if (S.incCursor) q = q.startAfter(S.incCursor);
+    const snap = await q.get();
+    if (!snap.size) { S.incDone = true; }
+    else {
+      snap.forEach(d => { const x = d.data(); if (x.demo === true) return; S.incItems.push({id:d.id, ...x}); });
+      S.incCursor = snap.docs[snap.docs.length - 1];
+      if (snap.size < INC_PAGE) S.incDone = true;
+    }
+    drawIncList();
+  } catch (e) {
+    const el = $('inclist');
+    if (el && !S.incItems.length) snapErr('inclist')(e); // index/conn error surface
+  }
+  if (more) more.disabled = false;
 }
 function renderNewIncident() {
   S.view = 'newincident'; stopListeners();
@@ -699,7 +790,7 @@ function renderDashboard() {
         const el = $('dash-subs'); if (!el) return;
         const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
         el.innerHTML = rows.length ? rows.map(r => `
-          <a class="listitem" href="javascript:openSubmission('${r.id}')">
+          <a class="listitem" href="#" data-open="submission" data-id="${esc(r.id)}">
             <b>${esc(tplName(r.templateId))}</b> <span class="badge ${r.status==='signed'?'signed':'draft'}">${esc(r.status==='signed'?t('signed'):t('draft'))}</span><br>
             <span class="small mut">${esc(r.team||'')} · ${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span>
           </a>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
@@ -710,11 +801,19 @@ function renderDashboard() {
         const el = $('dash-scans'); if (!el) return;
         const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
         el.innerHTML = rows.length ? rows.map(r => `
-          <div class="listitem"><b>📎 ${esc(r.fileName||r.id)}</b>${r.downloadURL?` <a href="${esc(r.downloadURL)}" target="_blank" rel="noopener">🔗 ${esc(t('viewForm'))}</a>`:''}<br>
+          <div class="listitem"><b>📎 ${esc(r.fileName||r.id)}</b>${scanLinkHtml(r)}<br>
           <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
           : `<p class="mut small">${esc(t('noItems'))}</p>`;
       }, snapErr('dash-scans')));
   }).catch(() => { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p class="mut">${esc(t('routeErrOffline'))}</p></div>`; });
+}
+/* T09: downloadURL is attacker-writable data — the safeUrl() allowlist
+   keeps javascript:/data: URLs from ever becoming clickable links. */
+function scanLinkHtml(r) {
+  if (!r.downloadURL) return '';
+  const u = safeUrl(r.downloadURL);
+  if (u) return ` <a href="${esc(u)}" target="_blank" rel="noopener">🔗 ${esc(t('viewForm'))}</a>`;
+  return ` <span class="badge">⛔ ${esc(t('linkBlocked'))}</span>`;
 }
 function drawDashShell() {
   const i = S.incident;
@@ -726,7 +825,7 @@ function drawDashShell() {
       <div class="sub">${esc(t('dashboard'))}</div>
     </div>
     <div class="kv"><dt>${esc(t('date'))}</dt><dd>${esc(i.date||'')}</dd>
-    <dt>${esc(t('kind'))}</dt><dd>${esc(i.kind==='real'?t('real'):t('exercise'))}</dd>
+    <dt>${esc(t('kind'))}</dt><dd>${esc(kindLabel(i.kind))}</dd>
     <dt>${esc(t('status'))}</dt><dd>${esc(i.status||'')}</dd></div>
     <button class="warn" onclick="renderTemplates()">${esc(t('fill'))}</button>
     <button class="sec" onclick="renderScans()">${esc(t('uploadScan'))}</button>
@@ -823,7 +922,14 @@ function fieldInput(f, prefix, val) {
   else if (f.type === 'signature') ctrl = `<div class="signbox"><canvas class="sig" id="${id}" data-f="${esc(f.name)}" tabindex="0" role="img" aria-label="${esc(t('signPadLabel'))}"></canvas><div class="xline"></div><div class="cap">${esc(t('signHere'))}</div></div><button class="ghost small" type="button" onclick="toggleSignType('${id}')">${esc(t('typeToSign'))}</button><input type="text" data-signinput="${id}" placeholder="${esc(t('typeNamePh'))}" aria-label="${esc(t('typeToSign'))}" maxlength="60" style="display:none">`;
   else {
     const map = {date:'date', time:'time', datetime:'datetime-local', number:'number'};
-    ctrl = `<input type="${map[f.type]||'text'}" id="${id}" data-f="${esc(f.name)}" value="${esc(v)}">`;
+    const mapped = map[f.type];
+    if (!mapped) {
+      // T33: unsupported field types fail LOUDLY — never silently degrade to text
+      console.warn('CERT Forms Center: unsupported field type', f.type, '— field:', f.name);
+      ctrl = `<span class="unsupported" role="note">⚠ ${esc(t('unsupportedType'))}: ${esc(f.type)} (${esc(f.name)})</span>`;
+    } else {
+      ctrl = `<input type="${mapped}" id="${id}" data-f="${esc(f.name)}" value="${esc(v)}">`;
+    }
   }
   return `<div class="field"><label class="f" for="${id}">${LBL(f)}${req}</label>${ctrl}</div>`;
 }
@@ -843,7 +949,11 @@ function tableHtml(tb, prefix, rows, sec) {
         c.options.map(o => `<option value="${esc(o.value)}" ${o.value===v?'selected':''}>${esc(LANG==='es'?o.label:o.label_en)}</option>`).join('') + `</select>`;
       else if (c.type === 'checkbox') ctrl = `<input type="checkbox" class="tickbox" id="${id}" ${an} data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" ${v?'checked':''}>`;
       else { const cmap = {date:'date', time:'time', datetime:'datetime-local', number:'number'};
-        ctrl = `<input type="${cmap[c.type]||'text'}" id="${id}" ${an} data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`; }
+        const mapped = cmap[c.type];
+        if (!mapped) console.warn('CERT Forms Center: unsupported table column type', c.type, '— column:', c.name);
+        ctrl = mapped
+          ? `<input type="${mapped}" id="${id}" ${an} data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`
+          : `<span class="unsupported" role="note">⚠ ${esc(t('unsupportedType'))}: ${esc(c.type)}</span>`; }
       body += `<td>${ctrl}</td>`;
     }
     body += `<td><button class="ghost" type="button" aria-label="${esc(t('delRowAria'))}" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
@@ -886,8 +996,10 @@ function addTableRow(prefix, tname) {
     try { defs = JSON.parse(tbl.dataset.cols || '[]'); } catch (e) {}
     if (!defs.length) defs = [...tbl.querySelector('thead tr').children].slice(0, -1).map((_, i) => ({name: 'col' + i, type: 'text'}));
     for (const c of defs) {
-      const cmap = {date:'date', time:'time', 'datetime-local':'datetime-local', number:'number', select:'select', checkbox:'checkbox'};
+      // T33: keys are the AUTHORING types (datetime, not datetime-local) to match fieldInput/tableHtml
+      const cmap = {date:'date', time:'time', datetime:'datetime-local', number:'number', select:'select', checkbox:'checkbox'};
       const kind = cmap[c.type] || 'text';
+      if (kind === 'text' && !cmap[c.type]) console.warn('CERT Forms Center: unsupported table column type', c.type, '— column:', c.name);
       const id = `${prefix}__${esc(tname)}__${r}__${esc(c.name)}`;
       const an = `aria-label="${esc((LANG === 'es' ? c.label : c.label_en) || c.name)}, ${esc(t('rowWord'))} ${r+1}"`;
       let ctrl;
@@ -1067,6 +1179,12 @@ async function renderFill(tplId) {
     app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button></div>`; return; }
   const f = curForm, P = 'fld';
+  /* T21: one UUID per submission *intent* — minted when the form opens and
+     used as the deterministic docId, so double-taps, network retries, and
+     offline-outbox replays all set() the SAME document instead of minting
+     duplicates. It also rides the outbox (docId is persisted in the queue). */
+  S.fillClientId = (crypto.randomUUID ? crypto.randomUUID()
+    : 'sub-' + Date.now().toString(36) + Math.random().toString(36).slice(2));
   const pad = n => String(n).padStart(2, '0');
   const footNonsig = f.footer.filter(x => x.type !== 'signature');
   const footSig = f.footer.filter(x => x.type === 'signature');
@@ -1156,16 +1274,19 @@ async function saveSubmission(status) {
   if (reqMissing.length) { toast(t('fillRequired') + ' ' + reqMissing.slice(0,3).join(', ')); return; }
   if (status === 'signed') {
     const sigFields = curForm.footer.filter(x => x.type === 'signature');
-    if (sigFields.length && !sigFields.some(f => values[f.name])) { toast(t('sigRequired')); return; }
+    // whitespace-only counts as NO signature (defense-in-depth vs out-of-band writes)
+    const hasSig = v => typeof v === 'string' ? !!v.trim() : !!v;
+    if (sigFields.length && !sigFields.some(f => hasSig(values[f.name]))) { toast(t('sigRequired')); return; }
   }
   const m = (MANIFEST || []).find(x => x.id === S.templateId);
   const doc = {
     templateId: S.templateId, templateVersion: m ? m.version : 1,
     incidentId: S.incidentId, team: $('sub-team').value.trim() || t('teamDefault'),
     fieldValues: values, tables, status, demo: false,
+    clientId: S.fillClientId || null, // T21 idempotency key (doubles as docId below)
     actor: S.actor, uid: S.uid || null, createdAt: ts(), updatedAt: ts()
   };
-  const {id, queued} = await writeDoc('submissions', null, doc, 'submission.' + status);
+  const {id, queued} = await writeDoc('submissions', S.fillClientId, doc, 'submission.' + status);
   if (queued) return; // "encolado para sincronizar" toast shown; stay on the form, draft intact
   await audit('submission.' + status, 'submissions', id);
   toast(t('saved')); S.submissionId = id; renderSubmission(id);
@@ -1224,6 +1345,7 @@ async function renderSubmission(id) {
 /* ---------- view: scans ---------- */
 function renderScans(subId) {
   S.view = 'scans'; S.scanSubId = subId || null; stopListeners();
+  S.scanRows = []; S.scanQuery = '';
   app().innerHTML = chrome(`📎 ${esc(t('scans'))}`, {lock:true}) + `
   <div class="card">
     <label class="f" for="scanfile">${esc(t('pickFile'))}</label>
@@ -1231,31 +1353,46 @@ function renderScans(subId) {
     <button onclick="once('uploadScan',()=>uploadScan('${esc(subId||'')}'))">${esc(t('uploadScan'))}</button>
     <button class="ghost" onclick="${subId ? `openSubmission('${esc(subId)}')` : 'renderDashboard()'}">${esc(t('back'))}</button>
   </div>
-  <div class="card"><h3>${esc(t('scans'))}</h3><div id="scanlist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
+  <div class="card"><h3>${esc(t('scans'))}</h3>
+    <div class="field"><input type="search" id="scansearch" aria-label="${esc(t('searchScansPh'))}" placeholder="${esc(t('searchScansPh'))}" oninput="onScanSearch(this.value)"></div>
+    <div id="scanlist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
   S.unsub.push(db.collection('scans').where('incidentId','==',S.incidentId).orderBy('createdAt','desc').limit(30)
     .onSnapshot(snap => {
       const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
-      const el = $('scanlist'); if (!el) return;
-      el.innerHTML = rows.length ? rows.map(r => `
-        <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b>${r.status==='pending'?` <span class="badge">⏳ ${esc(t('pending'))}</span>`:''}${r.downloadURL?` <a href="${esc(r.downloadURL)}" target="_blank" rel="noopener">🔗 ${esc(t('viewForm'))}</a>`:''}<br>
-        <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
-        : `<p class="mut">${esc(t('noItems'))}</p>`;
+      S.scanRows = rows; drawScanList();
     }, snapErr('scanlist')));
+}
+function onScanSearch(q) { S.scanQuery = (q || '').trim().toLowerCase(); drawScanList(); }
+function drawScanList() {
+  const el = $('scanlist'); if (!el) return;
+  const q = S.scanQuery;
+  const rows = q ? S.scanRows.filter(r =>
+    String(r.fileName || '').toLowerCase().includes(q) ||
+    String(r.actor || '').toLowerCase().includes(q) ||
+    String(r.status || '').toLowerCase().includes(q)) : S.scanRows;
+  el.innerHTML = rows.length ? rows.map(r => `
+    <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b>${r.status==='pending'?` <span class="badge">⏳ ${esc(t('pending'))}</span>`:''}${scanLinkHtml(r)}<br>
+    <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
+    : `<p class="mut">${esc(t('noItems'))}</p>`;
 }
 async function uploadScan(subId) {
   const f = $('scanfile').files[0];
   if (!f) { toast(t('pickFile')); return; }
   // 1. validate before anything touches the network
-  const ext = (f.name.split('.').pop() || '').toLowerCase();
-  const okType = f.type.startsWith('image/') || f.type === 'application/pdf' ||
-    ['jpg','jpeg','png','gif','webp','pdf'].includes(ext);
-  if (!okType) { toast(t('scanBadType')); return; }
-  if (f.size > 10 * 1024 * 1024) { toast(t('scanTooBig')); return; }
-  // el content-type se deriva de la extensión validada, nunca del MIME que reporte
-  // el navegador: un «x.pdf» con type text/html se almacena como application/pdf
+  // T15: the 6-extension map is AUTHORITATIVE — the browser's MIME is never
+  // trusted (image/svg+xml slipped through the old fallback and executed inline).
   const mimeFor = {jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', pdf:'application/pdf'};
-  const contentType = mimeFor[ext] ||
-    ((f.type.startsWith('image/') || f.type === 'application/pdf') ? f.type : 'application/octet-stream');
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  const contentType = mimeFor[ext];
+  if (!contentType) { toast(t('scanBadType')); return; }
+  if (f.size > 10 * 1024 * 1024) { toast(t('scanTooBig')); return; }
+  // T37 (client half): refuse to orphan a scan against a nonexistent incident
+  if (S.incidentId) {
+    try {
+      const inc = await db.collection('incidents').doc(S.incidentId).get();
+      if (!inc.exists) { toast(t('routeErrIncident')); return; }
+    } catch (e) { /* offline/conn error: let the write path surface it */ }
+  }
   const base = subId || S.incidentId || 'misc';
   const path = `forms/scans/${base}/${Date.now()}_${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
   const meta = { incidentId: S.incidentId, submissionId: subId || null,
@@ -1281,6 +1418,72 @@ async function uploadScan(subId) {
     toast(t('scanOk'));
   }
   renderScans(subId);
+}
+
+/* ---------- T40: in-app bug reports ---------- */
+function renderBugReport() {
+  S.view = 'bugreport'; stopListeners();
+  const sevOpts = [['blocker', t('sevBlocker')], ['major', t('sevMajor')], ['medium', t('sevMedium')], ['minor', t('sevMinor')]]
+    .map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
+  const areaOpts = [['forms', t('areaForms')], ['scans', t('areaScans')], ['incidents', t('areaIncidents')], ['other', t('areaOther')]]
+    .map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
+  app().innerHTML = chrome(`🐞 ${esc(t('bugReport'))}`, {lock:true}) + `
+  <div class="card">
+    <div class="field"><label class="f" for="bug-title">${esc(t('bugTitle'))}</label>
+      <input id="bug-title" maxlength="120" placeholder="${esc(t('bugTitlePh'))}"></div>
+    <div class="field"><label class="f" for="bug-desc">${esc(t('bugDesc'))}</label>
+      <textarea id="bug-desc" rows="4" placeholder="${esc(t('bugDescPh'))}"></textarea></div>
+    <div class="field"><label class="f" for="bug-steps">${esc(t('bugSteps'))}</label>
+      <textarea id="bug-steps" rows="3"></textarea></div>
+    <div class="field"><label class="f" for="bug-actual">${esc(t('bugActual'))}</label>
+      <textarea id="bug-actual" rows="2"></textarea></div>
+    <div class="field"><label class="f" for="bug-expected">${esc(t('bugExpected'))}</label>
+      <textarea id="bug-expected" rows="2"></textarea></div>
+    <div class="field"><label class="f" for="bug-severity">${esc(t('bugSeverity'))}</label>
+      <select id="bug-severity">${sevOpts}</select></div>
+    <div class="field"><label class="f" for="bug-area">${esc(t('bugArea'))}</label>
+      <select id="bug-area">${areaOpts}</select></div>
+    <button class="warn" onclick="once('submitBug',submitBug)">${esc(t('bugSubmit'))}</button>
+    <button class="sec" onclick="renderBugTriage()">${esc(t('bugTriage'))}</button>
+    <button class="ghost" onclick="renderIncidents()">${esc(t('back'))}</button>
+  </div>` + footnav('incidents');
+  $('bug-title').focus();
+}
+async function submitBug() {
+  const title = ($('bug-title').value || '').trim();
+  if (!title) { toast(t('bugTitleReq')); $('bug-title').focus(); return; }
+  const description = ($('bug-desc').value || '').trim();
+  if (!description) { toast(t('bugDescReq')); $('bug-desc').focus(); return; }
+  const doc = {
+    title, description,
+    steps: ($('bug-steps').value || '').trim(),
+    actual: ($('bug-actual').value || '').trim(),
+    expected: ($('bug-expected').value || '').trim(),
+    severity: $('bug-severity').value, area: $('bug-area').value,
+    status: 'open', reporter: S.actor || '', ua: (navigator.userAgent || '').slice(0, 300),
+    demo: false, createdAt: ts(),
+  };
+  const {id, queued} = await writeDoc('bugReports', null, doc, 'bugreport.create');
+  if (queued) { renderIncidents(); return; } // offline: report rides the outbox
+  await audit('bugreport.create', 'bugReports', id);
+  toast(t('bugSent')); renderBugTriage();
+}
+async function renderBugTriage() {
+  S.view = 'bugtriage'; stopListeners();
+  app().innerHTML = chrome(`🐞 ${esc(t('bugTriage'))}`, {lock:true}) + `
+  <div class="card"><div id="buglist"><p class="mut">${esc(t('loading'))}</p></div>
+  <button class="ghost" onclick="renderBugReport()">${esc(t('back'))}</button></div>` + footnav('incidents');
+  if (!FB_OK) { $('buglist').innerHTML = `<p class="mut">${esc(t('routeErrOffline'))}</p>`; return; }
+  S.unsub.push(db.collection('bugReports').where('status','==','open')
+    .orderBy('createdAt','desc').limit(50).onSnapshot(snap => {
+      const el = $('buglist'); if (!el) return;
+      const rows = []; snap.forEach(d => rows.push({id:d.id, ...d.data()}));
+      el.innerHTML = rows.length ? rows.map(r => `
+        <div class="listitem"><b>${esc(r.title || r.id)}</b>
+        <span class="badge">${esc(r.severity || '')}</span> <span class="small mut">${esc(r.area || '')}</span><br>
+        <span class="small mut">${esc(r.reporter || '')} · ${fmtT(r.createdAt)}</span></div>`).join('')
+        : `<p class="mut">${esc(t('noItems'))}</p>`;
+    }, snapErr('buglist')));
 }
 
 /* ---------- DEMO: live view + simulator ---------- */
@@ -1493,6 +1696,8 @@ function render() {
     case 'templates': return renderTemplates();
     case 'fill': return renderFillKeepDraft();
     case 'scans': return renderScans(S.scanSubId);
+    case 'bugreport': return renderBugReport();
+    case 'bugtriage': return renderBugTriage();
     case 'submission': return S.submissionId ? renderSubmission(S.submissionId) : renderIncidents();
     case 'demo': return renderDemoView();
     case 'dashboard': return renderDashboard();
@@ -1503,6 +1708,17 @@ function render() {
 window.addEventListener('DOMContentLoaded', () => {
   document.documentElement.lang = LANG;
   bindSigResize();
+  /* T09: internal navigation never goes through javascript: URIs — rows
+     rendered into innerHTML carry data-open/data-id and this one delegated
+     listener dispatches them (survives re-renders of every list). */
+  document.addEventListener('click', e => {
+    const el = e.target.closest && e.target.closest('[data-open]');
+    if (!el) return;
+    e.preventDefault();
+    const id = el.dataset.id;
+    if (el.dataset.open === 'incident') openIncident(id);
+    else if (el.dataset.open === 'submission') openSubmission(id);
+  });
   syncOutbox();
   loadConfig();
   const kiosk = sessionStorage.getItem('cfc_kiosk');
@@ -1520,4 +1736,5 @@ Object.assign(window, { submitPin, pinKey, pinBack, pinClear, toggleLang, doLock
   createIncident, openIncident, renderDashboard, renderTemplates, renderFill, addTableRow,
   addTeam, clearSigs, saveSubmission, openSubmission, renderSubmission, renderScans, uploadScan,
   enterDemo, exitDemo, exitRouteError, restoreStashedDraft, discardStashedDraft, once,
-  renderDemoView, renderScansList, retryList });
+  renderDemoView, renderScansList, retryList, onIncSearch, moreIncidents, onScanSearch,
+  renderBugReport, submitBug, renderBugTriage });
