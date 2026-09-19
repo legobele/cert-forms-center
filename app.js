@@ -119,7 +119,10 @@ const STR = {
     bugSeverity: "Gravedad", bugArea: "Área", bugSubmit: "Enviar reporte",
     bugSent: "Reporte enviado. ¡Gracias!", bugTriage: "Reportes abiertos",
     bugTitleReq: "Escriba un título para el reporte.",
-    sevMinor: "Menor", sevMajor: "Mayor", sevCritical: "Crítico",
+    bugDesc: "Descripción", bugDescPh: "Describa el problema en detalle",
+    bugDescReq: "Escriba una descripción del problema.",
+    sevBlocker: "Bloqueador", sevMajor: "Mayor", sevMedium: "Medio",
+    sevMinor: "Menor", sevCritical: "Crítico",
     areaForms: "Formularios", areaScans: "Escaneos", areaIncidents: "Incidentes", areaOther: "Otro",
   },
   en: {
@@ -205,7 +208,10 @@ const STR = {
     bugSeverity: "Severity", bugArea: "Area", bugSubmit: "Send report",
     bugSent: "Report sent. Thank you!", bugTriage: "Open reports",
     bugTitleReq: "Enter a title for the report.",
-    sevMinor: "Minor", sevMajor: "Major", sevCritical: "Critical",
+    bugDesc: "Description", bugDescPh: "Describe the problem in detail",
+    bugDescReq: "Enter a description of the problem.",
+    sevBlocker: "Blocker", sevMajor: "Major", sevMedium: "Medium",
+    sevMinor: "Minor", sevCritical: "Critical",
     areaForms: "Forms", areaScans: "Scans", areaIncidents: "Incidents", areaOther: "Other",
   }
 };
@@ -1417,7 +1423,7 @@ async function uploadScan(subId) {
 /* ---------- T40: in-app bug reports ---------- */
 function renderBugReport() {
   S.view = 'bugreport'; stopListeners();
-  const sevOpts = [['minor', t('sevMinor')], ['major', t('sevMajor')], ['critical', t('sevCritical')]]
+  const sevOpts = [['blocker', t('sevBlocker')], ['major', t('sevMajor')], ['medium', t('sevMedium')], ['minor', t('sevMinor')]]
     .map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
   const areaOpts = [['forms', t('areaForms')], ['scans', t('areaScans')], ['incidents', t('areaIncidents')], ['other', t('areaOther')]]
     .map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
@@ -1425,6 +1431,8 @@ function renderBugReport() {
   <div class="card">
     <div class="field"><label class="f" for="bug-title">${esc(t('bugTitle'))}</label>
       <input id="bug-title" maxlength="120" placeholder="${esc(t('bugTitlePh'))}"></div>
+    <div class="field"><label class="f" for="bug-desc">${esc(t('bugDesc'))}</label>
+      <textarea id="bug-desc" rows="4" placeholder="${esc(t('bugDescPh'))}"></textarea></div>
     <div class="field"><label class="f" for="bug-steps">${esc(t('bugSteps'))}</label>
       <textarea id="bug-steps" rows="3"></textarea></div>
     <div class="field"><label class="f" for="bug-actual">${esc(t('bugActual'))}</label>
@@ -1444,8 +1452,10 @@ function renderBugReport() {
 async function submitBug() {
   const title = ($('bug-title').value || '').trim();
   if (!title) { toast(t('bugTitleReq')); $('bug-title').focus(); return; }
+  const description = ($('bug-desc').value || '').trim();
+  if (!description) { toast(t('bugDescReq')); $('bug-desc').focus(); return; }
   const doc = {
-    title,
+    title, description,
     steps: ($('bug-steps').value || '').trim(),
     actual: ($('bug-actual').value || '').trim(),
     expected: ($('bug-expected').value || '').trim(),
