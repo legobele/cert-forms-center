@@ -185,7 +185,9 @@ function setOutbox(q) {
   catch (e) { toast(t('outboxFull')); return false; } // quota exceeded: loud, not silent
 }
 function queueWrite(coll, docId, data) {
-  const q = outbox(); q.push({coll, docId, data, queuedAt: Date.now()});
+  const q = outbox();
+  q.push({coll, docId, data, queuedAt: Date.now(),
+    key: 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2)});
   if (setOutbox(q)) toast(t('offlineQueued'));
 }
 async function writeDoc(coll, docId, data) {
@@ -198,18 +200,25 @@ async function writeDoc(coll, docId, data) {
     return ref.id;
   } catch (e) { queueWrite(coll, docId, data); return docId || 'queued-' + Date.now(); }
 }
+let syncing = false;
 async function syncOutbox() {
-  if (!FB_OK || !navigator.onLine) return;
+  if (!FB_OK || !navigator.onLine || syncing) return;
   const q = outbox(); if (!q.length) return;
-  const rest = [];
-  for (const w of q) {
-    try {
-      const ref = w.docId ? db.collection(w.coll).doc(w.docId) : db.collection(w.coll).doc();
-      await ref.set(w.data, {merge: false});
-    } catch (e) { rest.push(w); }
-  }
-  setOutbox(rest);
-  if (rest.length < q.length) toast(t('outboxSynced'));
+  syncing = true;
+  try {
+    const rest = [];
+    for (const w of q) {
+      try {
+        const ref = w.docId ? db.collection(w.coll).doc(w.docId) : db.collection(w.coll).doc();
+        await ref.set(w.data, {merge: false});
+      } catch (e) { rest.push(w); }
+    }
+    // merge anything queued while we were syncing — otherwise it is lost
+    const done = new Set(q.map(w => w.key));
+    const fresh = outbox().filter(w => !done.has(w.key));
+    setOutbox(rest.concat(fresh));
+    if (rest.length < q.length) toast(t('outboxSynced'));
+  } finally { syncing = false; }
 }
 window.addEventListener('online', syncOutbox);
 
