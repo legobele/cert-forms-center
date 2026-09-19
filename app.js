@@ -521,7 +521,7 @@ function modeKiosk() {
   S.view = 'kiosk';
   app().innerHTML = chrome(t('appName'), {lock:true}) + `
   <div class="card"><h2>${esc(t('who'))}</h2>
-    <label class="f">${esc(t('actorName'))}</label>
+    <label class="f" for="kname">${esc(t('actorName'))}</label>
     <input id="kname" maxlength="60" placeholder="${esc(t('namePh'))}" value="${esc(KIOSK_DEFAULT_USER)}">
     <button onclick="startKiosk()">${esc(t('start'))}</button>
     <button class="ghost" onclick="renderMode()">${esc(t('back'))}</button>
@@ -540,8 +540,8 @@ function modePersonal() {
   S.view = 'personal';
   app().innerHTML = chrome(t('appName'), {lock:true}) + `
   <div class="card"><h2>👤 ${esc(t('personal'))}</h2>
-    <label class="f">${esc(t('email'))}</label><input id="pemail" type="email" autocomplete="email">
-    <label class="f">${esc(t('pass'))}</label><input id="ppass" type="password" autocomplete="current-password">
+    <label class="f" for="pemail">${esc(t('email'))}</label><input id="pemail" type="email" autocomplete="email">
+    <label class="f" for="ppass">${esc(t('pass'))}</label><input id="ppass" type="password" autocomplete="current-password">
     <button onclick="doLogin()">${esc(t('login'))}</button>
     <button class="sec" onclick="doRegister()">${esc(t('register'))}</button>
     <button class="ghost" onclick="renderMode()">${esc(t('back'))}</button>
@@ -624,9 +624,9 @@ function renderNewIncident() {
   S.view = 'newincident'; stopListeners();
   app().innerHTML = chrome(t('newIncident'), {lock:true}) + `
   <div class="card"><h2>${esc(t('newIncident'))}</h2>
-    <label class="f">${esc(t('nameEs'))}</label><input id="iname" maxlength="120">
-    <label class="f">${esc(t('date'))}</label><input id="idate" type="date" value="2026-09-20">
-    <label class="f">${esc(t('kind'))}</label>
+    <label class="f" for="iname">${esc(t('nameEs'))}</label><input id="iname" maxlength="120">
+    <label class="f" for="idate">${esc(t('date'))}</label><input id="idate" type="date" value="2026-09-20">
+    <label class="f" for="ikind">${esc(t('kind'))}</label>
     <select id="ikind"><option value="exercise">${esc(t('exercise'))}</option><option value="real">${esc(t('real'))}</option></select>
     <button onclick="once('createIncident',createIncident)">${esc(t('create'))}</button>
     <button class="ghost" onclick="renderIncidents()">${esc(t('cancel'))}</button>
@@ -1144,7 +1144,7 @@ function renderScans(subId) {
   S.view = 'scans'; S.scanSubId = subId || null; stopListeners();
   app().innerHTML = chrome(`📎 ${esc(t('scans'))}`, {lock:true}) + `
   <div class="card">
-    <label class="f">${esc(t('pickFile'))}</label>
+    <label class="f" for="scanfile">${esc(t('pickFile'))}</label>
     <input type="file" id="scanfile" accept="image/*,.pdf">
     <button onclick="once('uploadScan',()=>uploadScan('${esc(subId||'')}'))">${esc(t('uploadScan'))}</button>
     <button class="ghost" onclick="${subId ? `openSubmission('${esc(subId)}')` : 'renderDashboard()'}">${esc(t('back'))}</button>
