@@ -10,11 +10,27 @@ const FB_CONFIG = {
   messagingSenderId: "620982874670",
   appId: "1:620982874670:web:a8186a37569a3fecec25bf"
 };
-const PIN_HASH = "b3f25d01ddb3fafeb251acbce91c2880d8130a38e5c064e142414c6d2ebbaedc";
-const DEMO_ORG_ID = "demo-2026-09-20";
-const BUCKET_URL = "https://firebasestorage.googleapis.com/v0/b/cert-forms-center.firebasestorage.app/o/forms%2Ftemplates%2F";
-const LOCK_MIN = 10;
+const PIN_HASH_FALLBACK = "b3f25d01ddb3fafeb251acbce91c2880d8130a38e5c064e142414c6d2ebbaedc";
+/* Runtime-overridable from Firestore config/access (hardcoded fallbacks). */
+let PIN_HASH = PIN_HASH_FALLBACK;
+let LOCK_MIN = 10;
+let KIOSK_DEFAULT_USER = "";
 const DEMO_TICK_MS = 25000;
+
+/* Pull PIN hash / auto-lock minutes / default kiosk user from Firestore
+   config/access; keeps hardcoded fallbacks when offline or unset. */
+async function loadConfig() {
+  if (!FB_OK) return;
+  try {
+    const d = await db.collection('config').doc('access').get();
+    if (!d.exists) return;
+    const c = d.data() || {};
+    if (typeof c.pinHash === 'string' && /^[0-9a-f]{64}$/i.test(c.pinHash)) PIN_HASH = c.pinHash;
+    if (Number.isFinite(+c.autoLockMinutes) && +c.autoLockMinutes > 0) LOCK_MIN = +c.autoLockMinutes;
+    if (typeof c.kioskDefaultUser === 'string') KIOSK_DEFAULT_USER = c.kioskDefaultUser.slice(0, 60);
+    pokeLock(); // re-arm with the (possibly new) LOCK_MIN
+  } catch (e) { /* offline: fallbacks stand */ }
+}
 
 /* ---------- i18n (STR/LANG pattern) ---------- */
 const STR = {
@@ -405,7 +421,7 @@ function modeKiosk() {
   app().innerHTML = chrome(t('appName'), {lock:true}) + `
   <div class="card"><h2>${esc(t('who'))}</h2>
     <label class="f">${esc(t('actorName'))}</label>
-    <input id="kname" maxlength="60" placeholder="${esc(t('namePh'))}">
+    <input id="kname" maxlength="60" placeholder="${esc(t('namePh'))}" value="${esc(KIOSK_DEFAULT_USER)}">
     <button onclick="startKiosk()">${esc(t('start'))}</button>
     <button class="ghost" onclick="renderMode()">${esc(t('back'))}</button>
   </div>`;
@@ -1209,6 +1225,7 @@ function render() {
 window.addEventListener('DOMContentLoaded', () => {
   document.documentElement.lang = LANG;
   syncOutbox();
+  loadConfig();
   const kiosk = sessionStorage.getItem('cfc_kiosk');
   if (unlocked() && kiosk) { S.mode = 'kiosk'; S.actor = kiosk; }
   if (!routeFromHash(true)) {
