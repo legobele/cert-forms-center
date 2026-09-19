@@ -100,6 +100,9 @@ const STR = {
     listenErr: "No se pudo cargar la lista. Revise su conexión.",
     retry: "Reintentar",
     indexErr: "Falta un índice compuesto en la consola de Firebase — solo un operador puede crearlo. Avise al coordinador.",
+    orgline: "Centro de Formularios · CERT",
+    pinClearBtn: "Borrar", pinPad: "Teclado numérico",
+    fillOut: "Diligenciar", secGeneral: "Datos generales", secClosing: "Cierre",
   },
   en: {
     appName: "CERT Forms Center",
@@ -165,6 +168,9 @@ const STR = {
     listenErr: "Could not load the list. Check your connection.",
     retry: "Retry",
     indexErr: "A composite index is missing in the Firebase console — only an operator can create it. Tell the coordinator.",
+    orgline: "CERT Forms Center",
+    pinClearBtn: "Clear", pinPad: "Numeric keypad",
+    fillOut: "Fill out", secGeneral: "General info", secClosing: "Closing",
   }
 };
 let LANG = localStorage.getItem('cfc_lang') || 'es';
@@ -427,7 +433,7 @@ function renderPin() {
   app().innerHTML = chrome(t('appName')) + `
   <div class="card center">
     <div class="masthead">
-      <div class="orgline">Centro de Formularios · CERT</div>
+      <div class="orgline">${esc(t('orgline'))}</div>
       <h1>&#129682; Tablilla</h1>
       <div class="sub">${esc(t('appName'))}</div>
     </div>
@@ -571,7 +577,7 @@ function renderIncidents() {
   app().innerHTML = chrome(`${esc(t('appName'))} · ${esc(S.actor||'')}`, {lock:true}) + `
   <div class="card">
     <div class="masthead">
-      <div class="orgline">Centro de Formularios · CERT</div>
+      <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(t('incidents'))}</h2>
     </div>
     ${stashed ? `<div class="draft-banner"><p>⚠️ ${esc(t('draftFound'))}</p>
@@ -673,7 +679,7 @@ function drawDashShell() {
   app().innerHTML = chrome(`📋 ${esc(i.name_es || S.incidentId)}`, {lock:true}) + `
   <div class="card">
     <div class="masthead">
-      <div class="orgline">Centro de Formularios · CERT</div>
+      <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(i.name_es || S.incidentId)}</h2>
       <div class="sub">${esc(t('dashboard'))}</div>
     </div>
@@ -946,7 +952,7 @@ async function renderFill(tplId) {
   <div class="card screen-only">
     <div class="formid"><span>N.&ordm; ${esc(f.id)} &middot; v${esc(String(f.version||1))}</span><span>${esc(LANG==='es'?'Diligenciar':'Fill out')}</span></div>
     <div class="masthead">
-      <div class="orgline">Centro de Formularios &middot; CERT</div>
+      <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(LANG==='es'?f.title:f.title_en)}</h2>
       <div class="sub">${esc(t('fill'))}</div>
     </div>
@@ -1070,7 +1076,7 @@ async function renderSubmission(id) {
     ${s.demo === true ? `<span class="stamp red demo-corner">Demo</span>` : ''}
     <div class="formid"><span>N.&ordm; ${esc(s.templateId||'')}</span><span>${fmtT(s.createdAt)}</span></div>
     <div class="masthead">
-      <div class="orgline">Centro de Formularios · CERT</div>
+      <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(name)}</h2>
       <div class="sub"><span class="stamp ${s.status==='signed'?'red':'amber'}" style="font-size:15px">${esc(s.status==='signed'?t('signed'):t('draft'))}</span></div>
     </div>
@@ -1171,7 +1177,7 @@ async function renderDemoView() {
   <div class="card">
     <span class="stamp red demo-corner">Demo</span>
     <div class="masthead">
-      <div class="orgline">Centro de Formularios · CERT</div>
+      <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(t('demoView'))}</h2>
       <div class="sub">${esc(LANG==='es'?'Datos simulados, no reales':'Simulated data, not real')}</div>
     </div>
