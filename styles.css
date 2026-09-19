@@ -12,7 +12,8 @@
   --red:        #b23a2c;  /* rojo seguridad / sello */
   --red-deep:   #8a2a20;
   --red-wash:   #f6e4dc;
-  --amber:      #cf8a1f;  /* ámbar */
+  --amber:      #cf8a1f;  /* ámbar (gráficos, bordes, sobre tinta) */
+  --amber-text:  #7a5210;  /* ámbar oscurecido para TEXTO sobre papel (6.1:1) */
   --amber-wash: #f5e6c4;
   --desk:       #211b12;  /* fondo "escritorio" detrás de las tablillas */
   --line:       var(--rule); /* alias legado usado por app.js inline styles */
@@ -97,7 +98,7 @@ header.top button{margin:0}
   pointer-events:none;user-select:none;white-space:nowrap;
 }
 .stamp.red{color:var(--red);background:rgba(178,58,44,.07)}
-.stamp.amber{color:var(--amber);background:rgba(207,138,31,.08)}
+.stamp.amber{color:var(--amber-text);background:rgba(207,138,31,.08)}
 .stamp.ink{color:var(--ink);background:rgba(27,23,18,.05)}
 .stamp.demo-corner{position:absolute;top:14px;right:12px;font-size:17px;z-index:3}
 
@@ -187,7 +188,7 @@ button.modebtn .small{letter-spacing:.04em}
   border:3px double currentColor;border-radius:2px;
   transform:rotate(-6deg);opacity:.92;white-space:nowrap}
 .badge.demo{color:var(--red);background:rgba(178,58,44,.07)}
-.badge.draft{color:var(--amber);background:rgba(207,138,31,.08)}
+.badge.draft{color:var(--amber-text);background:rgba(207,138,31,.08)}
 .badge.signed{color:var(--red);background:rgba(178,58,44,.07)}
 .badge.active{color:var(--ink);background:rgba(27,23,18,.05)}
 .badge.archived{color:var(--ink-soft);background:rgba(27,23,18,.03)}
