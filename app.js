@@ -54,7 +54,14 @@ const STR = {
     offlineQueued: "Sin conexión: guardado en la cola, se sincronizará.",
     outboxSynced: "Cola sincronizada.",
     outboxFull: "Almacenamiento lleno: no se pudo guardar en la cola. Libere espacio e inténtelo de nuevo.",
-    lock: "Bloquear", lang: "EN", exit: "Salir",
+    lock: "Bloquear", lang: "EN",
+    teamDefault: "Equipo 2",
+    simStatuses: ["En ruta al área", "Evaluando daños", "En puesto de mando", "Completado"],
+    simMsgs: ["Llegada al punto de reunión confirmada.", "Solicitando más botiquines en el área B.", "Comunicación radial restablecida."],
+    routeErrTemplate: "Plantilla no encontrada", routeErrOffline: "Sin conexión",
+    routeErrHash: "Enlace no válido", routeErrIncident: "Incidente no encontrado",
+    routeErrOfflineSub: "No se pudo cargar. Revise su conexión e inténtelo de nuevo.",
+    routeErrSub: "Revise el enlace e inténtelo de nuevo.", exit: "Salir",
     teams: "Equipos", submissions: "Formularios", recent: "Recientes",
     submittedBy: "Por", at: "el", noItems: "Nada aquí todavía.",
     demoLive: "VER DEMO EN VIVO", demoBanner: "⚠ DEMO — datos simulados, no reales",
@@ -105,7 +112,14 @@ const STR = {
     offlineQueued: "Offline: saved to queue, will sync.",
     outboxSynced: "Queue synced.",
     outboxFull: "Storage full: could not save to the queue. Free space and try again.",
-    lock: "Lock", lang: "ES", exit: "Exit",
+    lock: "Lock", lang: "ES",
+    teamDefault: "Team 2",
+    simStatuses: ["En route to the area", "Assessing damage", "At the command post", "Completed"],
+    simMsgs: ["Arrival at the rally point confirmed.", "Requesting more first-aid kits in area B.", "Radio communication restored."],
+    routeErrTemplate: "Template not found", routeErrOffline: "Offline",
+    routeErrHash: "Invalid link", routeErrIncident: "Incident not found",
+    routeErrOfflineSub: "Could not load. Check your connection and try again.",
+    routeErrSub: "Check the link and try again.", exit: "Exit",
     teams: "Teams", submissions: "Submissions", recent: "Recent",
     submittedBy: "By", at: "at", noItems: "Nothing here yet.",
     demoLive: "VIEW LIVE DEMO", demoBanner: "⚠ DEMO — simulated data, not real",
@@ -315,7 +329,7 @@ function footnav(active) {
     `<button class="${active===v?'on':''}" onclick="${fn}">${l}</button>`).join('') + `</footer>`;
 }
 function go(view) { S.view = view; stopDemo(); render(); }
-function toggleLang() { LANG = LANG === 'es' ? 'en' : 'es'; localStorage.setItem('cfc_lang', LANG); render(); }
+function toggleLang() { LANG = LANG === 'es' ? 'en' : 'es'; localStorage.setItem('cfc_lang', LANG); document.documentElement.lang = LANG; render(); }
 
 /* ---------- view: PIN gate ---------- */
 function renderPin() {
@@ -798,7 +812,7 @@ async function renderFill(tplId) {
       <div class="sub">${esc(t('fill'))}</div>
     </div>
     <div class="fsection"><span class="section-tag"><span class="n">01</span>${esc(LANG==='es'?'Datos generales':'General info')}</span>
-      <div class="field"><label class="f" for="sub-team">${esc(t('team'))}</label><input id="sub-team" maxlength="60" value="Equipo 2"></div>
+      <div class="field"><label class="f" for="sub-team">${esc(t('team'))}</label><input id="sub-team" maxlength="60" value="${esc(t('teamDefault'))}"></div>
       ${f.header.map(x => fieldInput(x, P)).join('')}
     </div>
     ${f.tables.map((tb, i) => tableHtml(tb, P, null, pad(i + 2))).join('')}
@@ -876,7 +890,7 @@ async function saveSubmission(status) {
   const m = (MANIFEST || []).find(x => x.id === S.templateId);
   const doc = {
     templateId: S.templateId, templateVersion: m ? m.version : 1,
-    incidentId: S.incidentId, team: $('sub-team').value.trim() || 'Equipo 2',
+    incidentId: S.incidentId, team: $('sub-team').value.trim() || t('teamDefault'),
     fieldValues: values, tables, status, demo: false,
     actor: S.actor, uid: S.uid || null, createdAt: ts(), updatedAt: ts()
   };
@@ -1027,7 +1041,7 @@ async function demoTick() {
   try {
     if (kind === 0) { // team status update
       const teamId = 'demo-team-' + ((demoStep % 2) + 1);
-      const statuses = ['En ruta al área', 'Evaluando daños', 'En puesto de mando', 'Completado'];
+      const statuses = t('simStatuses');
       await db.collection('incidents').doc(DEMO_ORG_ID).collection('teams').doc(teamId)
         .set({ name: actor, status: statuses[demoStep % 4], actor, at: ts(), demo: true });
       await db.collection('audit').doc().set({ actor, mode:'demo', action:'demo.team_status', collection:'teams', docId: teamId, at: ts() });
@@ -1037,7 +1051,7 @@ async function demoTick() {
         .set({ templateId: f.t, templateVersion: 1, incidentId: DEMO_ORG_ID, team: actor,
           fieldValues: f.v, tables: {}, status: 'draft', demo: true, actor, createdAt: ts(), updatedAt: ts() });
     } else if (kind === 2) { // comms-log-style submission
-      const msgs = ['Llegada al punto de reunión confirmada.', 'Solicitando más botiquines en el área B.', 'Comunicación radial restablecida.'];
+      const msgs = t('simMsgs');
       await db.collection('submissions').doc()
         .set({ templateId: 'communications_log', templateVersion: 1, incidentId: DEMO_ORG_ID, team: actor,
           fieldValues: { log_message: msgs[demoStep % msgs.length], log_time: new Date().toTimeString().slice(0,5) },
@@ -1157,13 +1171,11 @@ async function openFormRoute(incidentId, templateId) {
 function renderRouteError(kind) {
   // ES-first: friendly Spanish error, never a blank screen
   S.view = 'error'; S.routeErr = kind; stopDemo();
-  const msg = kind === 'template' ? 'Plantilla no encontrada'
-    : kind === 'offline' ? 'Sin conexión'
-    : kind === 'hash' ? 'Enlace no válido'
-    : 'Incidente no encontrado';
-  const sub = kind === 'offline'
-    ? 'No se pudo cargar. Revise su conexión e inténtelo de nuevo.'
-    : 'Revise el enlace e inténtelo de nuevo.';
+  const msg = kind === 'template' ? t('routeErrTemplate')
+    : kind === 'offline' ? t('routeErrOffline')
+    : kind === 'hash' ? t('routeErrHash')
+    : t('routeErrIncident');
+  const sub = kind === 'offline' ? t('routeErrOfflineSub') : t('routeErrSub');
   app().innerHTML = chrome(t('appName')) + `
   <div class="card center"><h2>⚠️ ${esc(msg)}</h2>
   <p class="mut">${esc(sub)}</p>
@@ -1195,6 +1207,7 @@ function render() {
   }
 }
 window.addEventListener('DOMContentLoaded', () => {
+  document.documentElement.lang = LANG;
   syncOutbox();
   const kiosk = sessionStorage.getItem('cfc_kiosk');
   if (unlocked() && kiosk) { S.mode = 'kiosk'; S.actor = kiosk; }
