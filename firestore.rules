@@ -1,68 +1,37 @@
 // ============================================================================
-// cert-forms-center — Firestore security rules (Phase 3 QA war draft)
+// cert-forms-center — Firestore security rules (MERGED, deployed via CLI)
 // Firebase project: cert-forms-center
 //
-// DEPLOYMENT — READ THIS FIRST:
-//   * Deploy target is the Firebase CONSOLE (or `firebase deploy --only
-//     firestore:rules`). This repo has NO firebase.json, NO firestore.indexes
-//     scaffolding and NO CI wired for rules — the live ruleset is console-only.
-//   * DO NOT paste this file verbatim into the console. It contains NO read
-//     rules and NO base auth/kiosk conditions, because the live ruleset was
-//     never committed to the repo and could only be inferred from probe
-//     behavior (see "Assumed existing behavior" below).
-//   * MERGE PROCEDURE (per match block): open the current console ruleset,
-//     find the existing `allow <op>` for the same collection, and AND its
-//     condition with the guard function named in the comment, e.g.
-//         allow create: if <existing console condition> && incidentGuards();
-//     Replacing the existing condition instead of AND-ing it WILL lock out the
-//     kiosk (unauthenticated writes are by design) or open writes wider.
-//   * After pasting, run every probe in /home/hatch/workspace/qawar/phase3/
-//     repro-*.md through the console rules playground BEFORE publishing.
-// ============================================================================
-//
-// Assumed existing behavior (inferred from unauthenticated REST probes,
-// Sat 2026-09-19 — the console ruleset itself was never read):
-//   * Unauthenticated create/update allowed on incidents, submissions, scans,
-//     bugReports, audit (kiosk mode is unauthenticated by design; PIN gate is
-//     client-side only).
-//   * Delete denied to everyone except (presumably) a custom-claim admin —
-//     authed non-admin DELETE is 403 even on own docs.
-//   * Update does not require doc existence (REST PATCH upserts: T39).
-//   * isAdmin() below assumes the admin marker is the custom claim
-//     `request.auth.token.admin == true`. OPERATOR: verify against the console
-//     ruleset — if admin is a uid allowlist or a different claim, swap the
-//     body of isAdmin() before publishing.
-//
-// What this draft ADDS (AND-ed with the above at deploy):
-//   incidents   — schema allowlist + type/enum checks (kills T45, T16);
-//                 actor required non-empty on create, immutable on update
-//                 (partial T04 — true identity binding is impossible while the
-//                 kiosk is unauthenticated).
-//   submissions — status in [draft,signed] + signed→draft demotion banned
-//                 (kills T23); signed docs require a non-empty, non-whitespace
-//                 signature data URL in fieldValues (kills T13 + OX61IntBRZiRU6Icu1Ae);
-//                 13-key schema allowlist + templateVersion is number +
-//                 fieldValues is map (kills VdWKfxX4BOX6hNcXdgVZ,
-//                 VImZAs0bGBLl2Urx7aSg; depth-limit PdRaMCSrwqUiS5vBRUcg is NOT
-//                 expressible in the rules DSL — needs a Cloud Function).
-//   scans       — create/update split; update requires existence (kills T39
-//                 upsert); incidentId must reference an existing incident
-//                 (kills T37); actor non-empty on create, immutable on update.
-//   bugReports  — title 1..140 chars, description required non-empty,
-//                 severity in [blocker,major,medium,minor] (kills T41 x4, T43).
-//   delete      — authed admins OR test:true docs (kills T35; lets QA clean up
-//                 its own probes).
-//
-// KNOWN DEPLOY BLOCKERS (in-flight app.js changes on branch phase3-fixes,
-// uncommitted at draft time):
-//   B1. The new in-app bug-report form (T40 fix) writes NO `description`
-//       field (schema: title/steps/actual/expected/…). With description
-//       required below, its writes will be REJECTED. Before deploying: either
-//       the form gains a description field, or this rule is relaxed.
-//   B2. The same form's severity <select> offers minor/major/CRITICAL —
-//       "critical" is NOT in the canonical enum below, so those writes will
-//       be REJECTED. Before deploying: map the form to the canonical
-//       [blocker,major,medium,minor] values (do not just widen the enum).
+// MERGE RECORD (Sat 2026-09-19 ~6:35pm AST, console-ops):
+//   * Prod ruleset fetched live before merging:
+//     projects/cert-forms-center/rulesets/24b46550-ecc1-458e-a376-3b1f240622e4
+//     (updated 2026-09-19T19:59:19Z). Prod was: read/create/update `if true`
+//     on bugReports, incidents, incidents/{i}/teams/{t}, submissions, scans;
+//     read+create on audit; read-only templates + config; NO delete rules
+//     anywhere (default deny); NO auth-based rules anywhere.
+//   * Merge procedure: each draft guard AND-ed with the prod `if true`
+//     condition for the same op (so `if true && guard()` == `if guard()`).
+//     Untouched-by-draft blocks (templates, teams subcollection, audit,
+//     config) are carried over verbatim from prod.
+//   * isAdmin() ADAPTATION: the draft assumed a custom claim
+//     `request.auth.token.admin == true`. The live ruleset has NO admin
+//     concept at all (nothing auth-based). Per console-ops instructions the
+//     broken assumption was NOT deployed. Delete is now:
+//         allow delete: if request.auth != null && resource.data.test == true;
+//     i.e. any authenticated user may delete test:true QA docs (fixes T35 for
+//     the QA users; the app itself never writes test:true). No admin claim is
+//     referenced anywhere below.
+//   * Deploy blockers B1/B2 from the draft are CLEAR: the merged app.js
+//     bug-report form (origin/main) now writes a required `description` and
+//     offers exactly the canonical severity enum
+//     [blocker,major,medium,minor].
+//   * App write-shape audit (origin/main app.js, pre-deploy): incident create
+//     writes {name_es,date(YYYY-MM-DD),kind∈{exercise,real},status:'active',
+//     demo:bool,actor(non-empty; empty→'Anónimo'),createdAt:serverTimestamp};
+//     submission writes exactly the 13 allowlisted keys; scan writes carry a
+//     real incidentId (incidents/demo-2026-09-20 exists in prod) + non-empty
+//     actor; demoTick writes are try/catch best-effort. Offline outbox
+//     round-trips serverTimestamp sentinels, so `is timestamp` holds there too.
 // ============================================================================
 
 rules_version = '2';
@@ -70,10 +39,6 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---------------- shared helpers ----------------
-    function isAdmin() {
-      // ASSUMPTION: admin == custom claim `admin`. Verify vs console ruleset.
-      return request.auth != null && request.auth.token.admin == true;
-    }
     // Actor: kiosk is unauthenticated, so the best the rules can do is
     // require a non-empty claimed name on create and freeze it afterwards.
     function actorNonEmpty() {
@@ -84,13 +49,41 @@ service cloud.firestore {
       return request.resource.data.get('actor', '')
           == resource.data.get('actor', '');
     }
-    function deletableByTester() {
-      return request.auth != null
-          && (isAdmin() || resource.data.test == true);
+    // T35: authenticated users may delete QA probe docs. There is no admin
+    // claim in this project (verified vs the live ruleset), so the delete
+    // grant is scoped to test:true docs, which the app never writes.
+    function testDocDeletable() {
+      return request.auth != null && resource.data.test == true;
+    }
+
+    // ---------------- bugReports ----------------
+    match /bugReports/{docId} {
+      function bugReportGuards() {
+        let d = request.resource.data;
+        return d.title is string && d.title.size() >= 1 && d.title.size() <= 140
+          && d.description is string && d.description.size() >= 1
+          && d.severity is string
+          && d.severity in ['blocker','major','medium','minor'];
+      }
+      // was: allow create/update if true. AND-ed with the guards (T41 x4, T43).
+      allow read: if true;
+      allow create: if bugReportGuards();
+      allow update: if resource != null && bugReportGuards();
+      allow delete: if testDocDeletable();
+    }
+
+    // ---------------- templates (unchanged from prod) ----------------
+    match /templates/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /templates/{t}/versions/{v} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // ---------------- incidents ----------------
-    match /incidents/{id} {
+    match /incidents/{docId} {
       function incidentGuards() {
         let d = request.resource.data;
         return d.keys().hasOnly(['name_es','date','kind','status','demo',
@@ -103,19 +96,23 @@ service cloud.firestore {
           && d.createdAt is timestamp
           && actorNonEmpty();
       }
-      // MERGE: AND each line below with the existing console allow-condition
-      // for the same op; do not replace it.
+      // was: allow create/update if true. AND-ed with the guards (T45, T16).
+      allow read: if true;
       allow create: if incidentGuards();
       allow update: if resource != null && incidentGuards() && actorImmutable();
-      allow delete: if deletableByTester();
+      allow delete: if testDocDeletable();
+    }
+
+    // ---------------- incidents/{i}/teams (unchanged from prod) ----------------
+    match /incidents/{i}/teams/{t} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
     }
 
     // ---------------- submissions ----------------
-    match /submissions/{id} {
+    match /submissions/{docId} {
       function submissionKeysOk() {
-        // NOTE: 13 keys, not 12 — 'clientId' is the in-flight T21 idempotency
-        // key (same branch, uncommitted app.js). Dropping it would reject every
-        // submission the app writes once that change lands.
         return request.resource.data.keys().hasOnly([
           'templateId','templateVersion','incidentId','team','fieldValues',
           'tables','status','demo','actor','uid','clientId',
@@ -137,10 +134,6 @@ service cloud.firestore {
       function fieldValuesOk() {
         return request.resource.data.get('fieldValues', {}) is map;
       }
-      // Signature value: non-empty, trim-aware (rejects "   "), and shaped
-      // like the client's safeImg pattern (canvas data URL). The data-URL
-      // pattern alone already excludes whitespace-only strings; the \S check
-      // makes the trim-awareness explicit (minor OX61IntBRZiRU6Icu1Ae).
       function sigValueOk(v) {
         return v is string
           && v.matches('.*\\S.*')
@@ -150,11 +143,9 @@ service cloud.firestore {
         return k in fv && sigValueOk(fv[k]);
       }
       function signedFieldPresent(fv) {
-        // No list.filter()/lambdas exist in the rules DSL (verified vs the
-        // rules reference), so the check is spelled out over the 8 unique
-        // signature field names found in forms/*.xml (9 occurrences total).
-        // If a future form adds a new signature field, ADD ITS NAME HERE or
-        // signed writes from that form will be rejected.
+        // No list.filter()/lambdas exist in the rules DSL, so the check is
+        // spelled out over the 8 unique signature field names in forms/*.xml.
+        // If a future form adds a new signature field, ADD ITS NAME HERE.
         return fv is map && (
              sigFieldOk(fv, 'team_leader_signature')
           || sigFieldOk(fv, 'scribe_signature')
@@ -173,12 +164,15 @@ service cloud.firestore {
         return submissionKeysOk() && statusOk() && templateVersionOk()
           && fieldValuesOk() && actorNonEmpty() && signedHasSig();
       }
-      // MERGE: AND each line below with the existing console allow-condition
-      // for the same op; do not replace it.
+      // was: allow create/update if true. AND-ed with the guards
+      // (T23 no-demote, T13+OX61IntBRZiRU6Icu1Ae signature, VdWKfxX4BOX6hNcXdgVZ,
+      // VImZAs0bGBLl2Urx7aSg schema). Depth-limit PdRaMCSrwqUiS5vBRUcg is NOT
+      // expressible in the rules DSL — needs a Cloud Function.
+      allow read: if true;
       allow create: if submissionGuards() && noDemote();
       allow update: if resource != null && submissionGuards() && noDemote()
         && actorImmutable();
-      allow delete: if deletableByTester();
+      allow delete: if testDocDeletable();
     }
 
     // ---------------- scans ----------------
@@ -189,42 +183,32 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/incidents/$(iid));
       }
       function scanIncidentOkOnUpdate() {
-        // incidentId is effectively immutable unless the new value also
-        // references a real incident.
         return resource.data.get('incidentId','')
                 == request.resource.data.get('incidentId','')
           || scanIncidentOk();
       }
-      // MERGE: AND each line below with the existing console allow-condition
-      // for the same op; do not replace it.
+      // was: allow create/update if true. AND-ed (T39 no-upsert, T37
+      // incident must exist, T04 actor). incidents/demo-2026-09-20 exists in
+      // prod, so the demo sim's scans keep passing.
+      allow read: if true;
       allow create: if actorNonEmpty() && scanIncidentOk();
       allow update: if resource != null && actorNonEmpty() && actorImmutable()
         && scanIncidentOkOnUpdate();
-      allow delete: if deletableByTester();
+      allow delete: if testDocDeletable();
     }
 
-    // ---------------- bugReports ----------------
-    match /bugReports/{id} {
-      function bugReportGuards() {
-        let d = request.resource.data;
-        return d.title is string && d.title.size() >= 1 && d.title.size() <= 140
-          && d.description is string && d.description.size() >= 1
-          && d.severity is string
-          && d.severity in ['blocker','major','medium','minor'];
-      }
-      // MERGE: AND each line below with the existing console allow-condition
-      // for the same op; do not replace it. See DEPLOY BLOCKERS B1/B2 above:
-      // the in-flight T40 form currently violates `description` and
-      // `severity` — reconcile BEFORE publishing or its writes will fail.
-      allow create: if bugReportGuards();
-      allow update: if resource != null && bugReportGuards();
-      allow delete: if deletableByTester();
-    }
-
-    // ---------------- everything else ----------------
-    // audit, config, incidents/{id}/teams, etc.: intentionally untouched by
-    // this draft — keep whatever the console ruleset currently enforces.
+    // ---------------- audit (unchanged from prod) ----------------
     // NOTE: audit docs remain client-writable (T28) until the Cloud Functions
     // trigger lands; treat actor/audit as informational until then.
+    match /audit/{docId} {
+      allow read: if true;
+      allow create: if true;
+    }
+
+    // ---------------- config (unchanged from prod) ----------------
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }
