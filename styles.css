@@ -294,11 +294,13 @@ footer.foot button.on{background:var(--ink);color:var(--amber)}
 
 /* ---------- impresión: la hoja de papel real ---------- */
 @media print{
-  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{background:#fff;padding:0}
   #app{max-width:none;padding:0}
   header.top,footer.foot,.noprint,.toast,.card.noprint,.screen-only{display:none!important}
-  .card{border:2px solid #1b1712;box-shadow:none;margin:0 0 14px;padding:20px}
+  /* papel: tinta negra sobre hoja blanca, sin fondos que devoren tinta */
+  .card{border:2px solid #1b1712;box-shadow:none;margin:0 0 14px;padding:20px;background:#fff}
+  table.form th{background:none}
+  .section-tag{background:none;color:#1b1712;box-shadow:none;transform:none;border-color:#1b1712}
   .card::before{display:none}
   .print-area{display:block!important}
   .stamp{-webkit-print-color-adjust:exact;print-color-adjust:exact}
