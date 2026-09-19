@@ -325,13 +325,20 @@ async function lockNow() {
   if (S.mode === 'personal' && auth) { try { await auth.signOut(); } catch (e) {} }
   doLock();
 }
-function doLock() {
+/* doLock: the single choke point for every lock path — manual Lock button
+   (lockNow), the auto-lock timer, and the tab-hide lock. In personal mode it
+   also signs the Firebase user out (LOCAL persistence would otherwise keep the
+   previous personal user signed in on this shared kiosk, and the next boot
+   while still PIN-unlocked would silently resurrect their session). */
+async function doLock() {
   stashDraft(); // never vaporize an in-progress form silently
+  const wasPersonal = S.mode === 'personal';
   sessionStorage.removeItem('cfc_unlocked');
   sessionStorage.removeItem('cfc_kiosk');
   sessionStorage.removeItem('cfc_mode');
   S.mode = null; S.actor = null; S.uid = null; stopDemo(); stopListeners();
   pendingRoute = null; setHash('');
+  if (wasPersonal && auth) { try { await auth.signOut(); } catch (e) {} }
   renderPin();
 }
 /* Snapshot an in-progress fill-form draft (incl. signature strokes captured
@@ -1092,7 +1099,10 @@ async function uploadScan(subId) {
   if (putErr) {
     toast(t('scanPending')); // doc stays pending; user can retry later
   } else {
-    try { await db.collection('scans').doc(scanId).update({status: 'done'}); } catch (e) {}
+    // record the download URL so the scan can be opened later (it was write-only)
+    let url = null;
+    try { url = await storage.ref(path).getDownloadURL(); } catch (e) {}
+    try { await db.collection('scans').doc(scanId).update(url ? {status: 'done', downloadURL: url} : {status: 'done'}); } catch (e) {}
     await audit('scan.upload', 'scans', scanId);
     toast(t('scanOk'));
   }
