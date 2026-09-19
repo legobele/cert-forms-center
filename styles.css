@@ -316,9 +316,10 @@ footer.foot button.on{background:var(--ink);color:var(--amber)}
 /* ---------- responsive ---------- */
 @media (max-width:600px){
   #app{padding:0 10px}
+  header.top{margin:0 -10px} /* igualar al padding de #app: evita sangrado horizontal */
   .card{padding:22px 16px 26px}
   .masthead h1,.masthead h2{font-size:30px}
-  .pinrow input{width:54px;height:64px;font-size:28px}
+  .pinrow input{height:64px;font-size:28px}
   .keypad button{min-height:64px}
   .stamp.demo-corner{font-size:14px;top:12px;right:10px}
   .kv{grid-template-columns:1fr}
