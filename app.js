@@ -673,7 +673,11 @@ async function renderFill(tplId) {
   try { xml = await loadTemplateXml(tplId); }
   catch (e) { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button></div>`; return; }
-  curForm = parseForm(xml);
+  curForm = null;
+  try { curForm = parseForm(xml); }
+  catch (e) { // malformed XML: friendly error, never eternal "Cargando…"
+    app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
+    <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button></div>`; return; }
   const f = curForm, P = 'fld';
   const pad = n => String(n).padStart(2, '0');
   const footNonsig = f.footer.filter(x => x.type !== 'signature');
