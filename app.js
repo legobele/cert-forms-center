@@ -403,7 +403,13 @@ async function submitPin() {
   if (pin.length !== 6) { toast(t('pinIncomplete')); return; }
   if (await checkPin(pin)) {
     pinFails = 0; pinLockUntil = 0;
-    sessionStorage.setItem('cfc_unlocked', '1'); pokeLock(); renderMode();
+    sessionStorage.setItem('cfc_unlocked', '1'); pokeLock();
+    // El callback one-shot de auth ya pudo haber resuelto al usuario persistido
+    // mientras el equipo seguía bloqueado (caso normal con auth rápida): en ese
+    // caso la sesión personal nunca se restaura. Reintentar aquí con el usuario
+    // actual; si restaura, ya navegó a incidents y no mostramos el selector.
+    if (auth && auth.currentUser && !S.mode) restorePersonalSession(auth.currentUser);
+    if (!S.mode) renderMode();
   } else if (++pinFails >= 5) {
     pinFails = 0; pinLockUntil = Date.now() + 60000;
     toast(t('pinLocked').replace('{s}', '60'));
