@@ -1122,7 +1122,7 @@ async function renderSubmission(id) {
   app().innerHTML = chrome(t('details'), {lock:true}) + `<div class="card"><p class="mut">${esc(t('loading'))}</p></div>`;
   let d;
   try { d = await db.collection('submissions').doc(id).get(); } catch(e) { d = null; }
-  if (!d || !d.exists) { toast('?'); renderDashboard(); return; }
+  if (!d || !d.exists) { toast(t('routeErrSub')); renderDashboard(); return; }
   const s = d.data();
   const name = tplName(s.templateId);
   const fv = s.fieldValues || {};
