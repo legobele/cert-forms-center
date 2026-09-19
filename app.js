@@ -796,7 +796,7 @@ function tableHtml(tb, prefix, rows, sec) {
     body += `<td><button class="ghost" type="button" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
   }
   return `<div class="fsection"><span class="section-tag">${sec?`<span class="n">${esc(sec)}</span>`:''}${esc(LANG==='es'?tb.label:tb.label_en)}</span>
-  <table class="form" id="${prefix}__tbl__${esc(tb.name)}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+  <table class="form" id="${prefix}__tbl__${esc(tb.name)}" data-cols="${esc(JSON.stringify(tb.columns))}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
   <button class="sec small" type="button" onclick="addTableRow('${prefix}','${esc(tb.name)}')">${esc(t('addRow'))}</button></div>`;
 }
 function addTableRow(prefix, tname) {
@@ -1060,9 +1060,10 @@ async function renderSubmission(id) {
   }).join('');
   const trows = Object.entries(s.tables || {}).map(([tn, arr]) => {
     if (!Array.isArray(arr) || !arr.length) return '';
-    const cols = [...new Set(arr.flatMap(r => Object.keys(r || {})))];
+    const rows = arr.filter(r => r && typeof r === 'object'); // skip null holes from legacy sparse rows
+    const cols = [...new Set(rows.flatMap(r => Object.keys(r)))];
     return `<h3>${esc(tn)}</h3><table class="form"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
-      arr.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('') + `</tbody></table>`;
+      rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('') + `</tbody></table>`;
   }).join('');
   app().innerHTML = chrome(`📄 ${esc(name)}`, {lock:true}) + `
   <div class="card print-area">
