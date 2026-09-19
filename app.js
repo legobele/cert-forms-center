@@ -853,9 +853,6 @@ function collectValues(prefix, form) {
     }
   });
   for (const tn of Object.keys(tableRows)) tables[tn] = [...tableRows[tn].values()];
-      tables[tn][r][typeof c === 'string' ? c : 'col' + c] = el.type === 'checkbox' ? el.checked : el.value;
-    }
-  });
   const allFields = [...form.header, ...form.footer];
   for (const f of allFields) if (f.required && !values[f.name]) reqMissing.push(LBL(f));
   return {values, tables, reqMissing};
@@ -1274,7 +1271,8 @@ function routeFromHash(initial) {
   switch (r.route) {
     case 'none':
       // browser back out of a deep view -> incidents list (or PIN gate)
-      if (!initial && (S.view === 'dashboard' || S.view === 'fill' || S.view === 'error')) {
+      if (!initial && (S.view === 'dashboard' || S.view === 'fill' || S.view === 'error' || S.view === 'demo')) {
+        stopDemo(); // leaving #/demo by ANY route kills the simulator timer (browser back included)
         if (unlocked() && S.mode) renderIncidents(); else renderPin();
         return true;
       }
