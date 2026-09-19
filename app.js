@@ -1121,7 +1121,7 @@ function wireSig(canvas) {
     if (pen) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(kx, ky); ctx.stroke(); stroked = true; commit(); }
   });
   canvas.addEventListener('blur', commit);
-  canvas._clear = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); delete sigData[canvas.id];
+  canvas._clear = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); delete sigData[canvas.id]; stroked = false;
     document.querySelectorAll(`[data-signinput="${canvas.id}"]`).forEach(i => { i.value = ''; i.style.display = 'none'; }); };
 }
 /* Alternativa de teclado a la firma dibujada: escribir el nombre lo
