@@ -213,7 +213,11 @@ async function once(key, fn) {
   _busy.add(key);
   try { await fn(); } finally { _busy.delete(key); }
 }
-const ts = () => firebase.firestore.FieldValue.serverTimestamp();
+/* Si el SDK de Firebase no cargó, no hay FieldValue: devolver null en vez de
+   lanzar ReferenceError, para que el guardado llegue a writeDoc y al outbox offline. */
+const ts = () => (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+  ? firebase.firestore.FieldValue.serverTimestamp()
+  : null;
 /* serverTimestamp() sentinels don't survive the outbox's JSON round-trip
    (they'd replay as garbage objects). Strip to a marker on queue, re-stamp on sync. */
 const TS_MARK = '__cfc_server_ts';
