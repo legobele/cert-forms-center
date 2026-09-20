@@ -116,7 +116,7 @@ service cloud.firestore {
         return request.resource.data.keys().hasOnly([
           'templateId','templateVersion','incidentId','team','fieldValues',
           'tables','status','demo','actor','uid','clientId',
-          'createdAt','updatedAt'
+          'createdAt','updatedAt','test'
         ]);
       }
       function statusOk() {
