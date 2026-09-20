@@ -1,341 +1,278 @@
 /* ============================================================
-   CERT Forms Center — "TABLILLA" (el formulario de papel, digitalizado)
-   Vanilla CSS · cero peticiones externas · solo fuentes del sistema
+   CERT Forms Center — console theme
+   Flat enterprise UI. System fonts. No decoration.
    ============================================================ */
 :root{
-  --paper:      #f5f1e6;  /* papel cálido */
-  --paper-2:    #ece3cd;  /* papel más hondo (franjas, pozos) */
-  --well:       #fbf8ef;  /* pozos de campo */
-  --rule:       #ddd1b4;  /* líneas finas del papel */
-  --ink:        #1b1712;  /* tinta */
-  --ink-soft:   #5c5340;  /* tinta apagada (etiquetas) */
-  --red:        #b23a2c;  /* rojo seguridad / sello */
-  --red-bright: #e08070;  /* rojo claro para TEXTO sobre tinta (6.1:1 sobre #211b12) */
-  --red-deep:   #8a2a20;
-  --ink-soft-dk:#a3946f;  /* tinta apagada para texto sobre fondos oscuros (6.0:1) */
-  --red-wash:   #f6e4dc;
-  --amber:      #cf8a1f;  /* ámbar (gráficos, bordes, sobre tinta) */
-  --amber-text:  #7a5210;  /* ámbar oscurecido para TEXTO sobre papel (6.1:1) */
-  --amber-wash: #f5e6c4;
-  --desk:       #211b12;  /* fondo "escritorio" detrás de las tablillas */
-  --line:       var(--rule); /* alias legado usado por app.js inline styles */
+  --bg:        #f5f5f7;
+  --card:      #ffffff;
+  --border:    #e2e2e8;
+  --border-2:  #cfcfd6;
+  --ink:       #1d1d1f;
+  --ink-2:     #3a3a3c;
+  --mut:       #6e6e73;
+  --faint:     #aeaeb2;
+  --accent:    #3f6d9e;
+  --accent-dk: #345c85;
+  --accent-bg: #eef3f8;
+  --danger:    #b3261e;
+  --danger-bg: #fdecea;
+  --warn-tx:   #8a5a00;
+  --warn-bg:   #fdf6e3;
+  --ok-tx:     #2e7d32;
+  --ok-bg:     #edf5ee;
+  --line:      var(--border); /* alias used by app.js inline styles */
 
-  --f-head: "Arial Narrow","Franklin Gothic Medium","Franklin Gothic",
-            "HelveticaNeue-CondensedBold","Helvetica Condensed",Impact,sans-serif;
+  --f-body: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --f-mono: ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
-  --f-body: -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Helvetica Neue",sans-serif;
 }
-*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0;
-  background:var(--desk);
-  background-image:
-    repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 5px),
-    repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 1px, transparent 1px 5px);
+  background:var(--bg);
   font-family:var(--f-body);
   color:var(--ink);
-  font-size:16px; line-height:1.45;
-  padding:0 0 120px;
+  font-size:15px;line-height:1.5;
+  padding:0 0 110px;
 }
-#app{max-width:520px;margin:0 auto;padding:0 14px}
-h1{font-size:1.5rem;margin:.2em 0}h2{font-size:1.2rem;margin:.3em 0}h3{font-size:1.05rem;margin:.4em 0}
-.mut{color:var(--ink-soft)}.small{font-size:.85rem}.center{text-align:center}
-a{color:var(--red-deep)}
+#app{max-width:640px;margin:0 auto;padding:0 12px}
+h1{font-size:1.25rem;margin:.2em 0;font-weight:600}
+h2{font-size:1.1rem;margin:.3em 0;font-weight:600}
+h3{font-size:.95rem;margin:.4em 0;font-weight:600}
+.mut{color:var(--mut)}.small{font-size:.82rem}.center{text-align:center}
+a{color:var(--accent)}
 
-/* ---------- cromo superior: barra de escritorio ---------- */
+/* ---------- top bar ---------- */
 header.top{
   position:sticky;top:0;z-index:20;
-  background:var(--desk);
-  border-bottom:2px solid #14100a;
-  color:var(--paper);
-  margin:0 -14px;padding:10px 14px;
-  display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 8px rgba(0,0,0,.4);
+  background:var(--card);
+  border-bottom:1px solid var(--border);
+  margin:0 -12px;padding:9px 12px;
+  display:flex;align-items:center;gap:8px;
 }
 header.top .t{
-  font-family:var(--f-head);font-weight:800;text-transform:uppercase;
-  letter-spacing:.1em;font-size:1rem;flex:1;color:var(--paper);
+  font-weight:600;font-size:.95rem;flex:1;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 header.top .tag{
-  display:inline-block;
-  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
-  letter-spacing:.22em;line-height:1;font-size:.72rem;
-  padding:.45em .8em .35em;color:var(--red-bright);
-  border:3px double currentColor;border-radius:2px;
-  transform:rotate(-6deg);opacity:.95;background:rgba(178,58,44,.12);
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--mut);border:1px solid var(--border-2);border-radius:2px;
+  padding:3px 8px;background:var(--bg);white-space:nowrap;
 }
-header.top button{margin:0}
+header.top button{margin:0;min-height:36px;padding:6px 10px;font-size:.8rem}
 
-/* ---------- la tablilla: hoja de papel con clip ---------- */
+/* ---------- cards ---------- */
 .card{
-  position:relative;
-  background-color:var(--paper);
-  /* grano de papel: solo repeating-gradients, nada de imágenes */
-  background-image:
-    repeating-linear-gradient(0deg,  rgba(120,98,58,.055) 0 1px, transparent 1px 4px),
-    repeating-linear-gradient(90deg, rgba(120,98,58,.040) 0 1px, transparent 1px 4px);
-  border:2px solid #14100a;
-  padding:26px 20px 28px;
-  margin:34px 0 16px;
-  box-shadow:0 14px 34px rgba(0,0,0,.55);
-}
-.card::before{ /* el clip del portapapeles */
-  content:"";position:absolute;top:-26px;left:50%;transform:translateX(-50%);
-  width:120px;height:28px;z-index:2;
-  background:linear-gradient(#7a6f5c,#4c4436);
-  border:2px solid #14100a;border-bottom:none;border-radius:8px 8px 0 0;
-  box-shadow:0 2px 0 rgba(0,0,0,.45);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:2px;
+  padding:18px 16px;
+  margin:14px 0;
 }
 
-/* ---------- sellos de goma (CSS puro) ---------- */
+/* ---------- labels / stamps (flat) ---------- */
 .stamp{
   display:inline-block;
-  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
-  letter-spacing:.22em;line-height:1;
-  padding:.45em .9em .35em;
-  border:3px double currentColor;border-radius:2px;
-  transform:rotate(-8deg);opacity:.92;
-  text-shadow:0 0 1px currentColor;
-  pointer-events:none;user-select:none;white-space:nowrap;
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  padding:3px 8px;border:1px solid var(--border-2);border-radius:2px;
+  color:var(--mut);background:var(--bg);white-space:nowrap;
 }
-.stamp.red{color:var(--red);background:rgba(178,58,44,.07)}
-.stamp.amber{color:var(--amber-text);background:rgba(207,138,31,.08)}
-.stamp.ink{color:var(--ink);background:rgba(27,23,18,.05)}
-.stamp.demo-corner{position:absolute;top:14px;right:12px;font-size:17px;z-index:3}
+.stamp.red{color:var(--danger);border-color:#eec5c1;background:var(--danger-bg)}
+.stamp.amber{color:var(--warn-tx);border-color:#e8d9a8;background:var(--warn-bg)}
+.stamp.ink{color:var(--ink-2)}
+.stamp.demo-corner{position:absolute;top:12px;right:12px}
 
-/* ---------- membrete ---------- */
-.masthead{border-bottom:3px solid var(--ink);padding-bottom:12px;margin-bottom:18px}
+/* ---------- masthead ---------- */
+.masthead{border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:14px}
 .masthead .orgline{
-  font-family:var(--f-mono);font-size:11px;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--ink-soft)}
-.masthead h1,.masthead h2{
-  font-family:Impact,"Arial Narrow","Franklin Gothic Medium",sans-serif;
-  font-weight:900;text-transform:uppercase;letter-spacing:.03em;
-  font-size:34px;line-height:.95;margin:6px 0 0;overflow-wrap:break-word}
-.masthead .sub{
-  font-family:var(--f-head);font-weight:700;text-transform:uppercase;
-  letter-spacing:.14em;font-size:14px;color:var(--red);margin-top:6px}
+  font-size:.68rem;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint)}
+.masthead h1,.masthead h2{font-size:1.25rem;font-weight:600;margin:4px 0 0;overflow-wrap:break-word}
+.masthead .sub{font-size:.82rem;color:var(--mut);margin-top:2px}
 
-/* etiqueta "sellada" de sección */
+/* section label */
 .section-tag{
   display:inline-block;
-  font-family:var(--f-head);font-weight:800;text-transform:uppercase;
-  letter-spacing:.14em;font-size:15px;line-height:1;
-  background:var(--ink);color:var(--paper);
-  border:2px solid var(--ink);
-  padding:.5em 1em .4em;
-  transform:rotate(-1deg);
-  box-shadow:4px 4px 0 var(--rule)}
-.section-tag .n{font-family:var(--f-mono);font-weight:400;margin-right:.6em;opacity:.75}
+  font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--mut);margin-bottom:8px;
+}
+.section-tag .n{font-family:var(--f-mono);font-weight:400;margin-right:.5em;color:var(--faint)}
 
-/* secciones encajonadas como el papel real */
+/* boxed form sections */
 .fsection{
-  border:2px solid var(--ink);background:rgba(255,255,255,.28);
-  padding:28px 16px 18px;margin:26px 0 8px;position:relative}
-.fsection > .section-tag{position:absolute;top:-17px;left:12px}
+  border:1px solid var(--border);border-radius:2px;background:#fbfbfc;
+  padding:14px;margin:14px 0 8px;position:relative}
+.fsection > .section-tag{margin-bottom:10px}
 
-/* ---------- campos: celdas encajonadas ---------- */
+/* ---------- fields ---------- */
 label.f{
-  display:block;font-family:var(--f-head);font-weight:700;font-size:12px;
-  letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);
-  margin:10px 0 6px}
-.field{margin-bottom:6px}
+  display:block;font-size:.7rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--mut);
+  margin:10px 0 4px}
+.field{margin-bottom:4px}
 .field input,.field textarea,.field select,
 input[type="text"],input[type="date"],input[type="time"],input[type="datetime-local"],
 input[type="number"],input[type="email"],input[type="password"],input[type="file"],
 select,textarea{
-  width:100%;min-height:52px;
-  font-family:var(--f-mono);font-size:17px;color:var(--ink);
-  background:var(--well);border:2px solid var(--ink);border-radius:0;
-  padding:10px 12px;outline:none;margin:4px 0 10px;
+  width:100%;min-height:44px;
+  font-family:var(--f-body);font-size:15px;color:var(--ink);
+  background:#fff;border:1px solid var(--border-2);border-radius:2px;
+  padding:8px 10px;outline:none;margin:2px 0 8px;
 }
-input:focus,select:focus,textarea:focus{
-  border-color:var(--red);box-shadow:3px 3px 0 var(--red-wash)}
-/* foco visible para teclado en todos los botones (WCAG 2.4.7): ámbar peligroso sobre negro */
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
 button:focus-visible,a:focus-visible,[role="button"]:focus-visible{
-  outline:3px solid var(--amber);outline-offset:2px;box-shadow:3px 3px 0 var(--ink)}
+  outline:2px solid var(--accent);outline-offset:2px}
 input[type="checkbox"].tickbox,input[type="checkbox"]{
-  width:44px;height:44px;min-height:44px;accent-color:var(--red);
-  border:2px solid var(--ink);margin:8px 4px 8px 0;vertical-align:middle}
-.req{color:var(--red)}
-textarea{min-height:120px;line-height:1.5}
+  width:22px;height:22px;min-height:22px;accent-color:var(--accent);
+  margin:6px 6px 6px 0;vertical-align:middle}
+.req{color:var(--danger)}
+textarea{min-height:110px;line-height:1.5}
+.unsupported{
+  display:block;font-size:.82rem;color:var(--warn-tx);background:var(--warn-bg);
+  border:1px solid #e8d9a8;border-radius:2px;padding:8px 10px;margin:8px 0}
 
-/* tablas del renderizador genérico */
-table.form{width:100%;border-collapse:collapse;margin:8px 0;font-size:.9rem;display:block;overflow-x:auto;background:var(--well);border:2px solid var(--ink)}
-table.form th,table.form td{border:1px solid var(--rule);padding:4px;vertical-align:top;min-width:90px}
-table.form th{background:var(--paper-2);font-family:var(--f-head);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
-table.form input,table.form select{margin:0;padding:8px;font-size:.9rem;min-height:48px}
+/* dense data tables */
+table.form{width:100%;border-collapse:collapse;margin:8px 0;font-size:.82rem;display:block;overflow-x:auto;background:#fff;border:1px solid var(--border)}
+table.form th,table.form td{border:1px solid var(--border);padding:5px 8px;vertical-align:top;min-width:80px;text-align:left}
+table.form th{background:#fafafc;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+table.form input,table.form select{margin:0;padding:6px;font-size:.82rem;min-height:36px}
 
-/* ---------- botones: bloques de tinta, 56px+ ---------- */
+/* ---------- buttons ---------- */
 button,.btn{
-  display:inline-block;min-height:56px;cursor:pointer;border-radius:0;
-  font-family:var(--f-head);font-weight:800;font-size:17px;
-  letter-spacing:.12em;text-transform:uppercase;
-  border:3px solid var(--ink);background:var(--ink);color:var(--paper);
-  box-shadow:5px 5px 0 rgba(0,0,0,.45);
-  padding:12px 18px;margin:8px 8px 8px 0;text-decoration:none}
-button:active,.btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 rgba(0,0,0,.45)}
+  display:inline-block;min-height:44px;cursor:pointer;border-radius:2px;
+  font-family:var(--f-body);font-weight:600;font-size:.9rem;
+  border:1px solid var(--accent-dk);background:var(--accent);color:#fff;
+  padding:10px 16px;margin:6px 6px 6px 0;text-decoration:none}
+button:active,.btn:active{background:var(--accent-dk)}
 button:disabled{opacity:.5;cursor:default}
-button.sec{background:var(--well);color:var(--ink)}
-button.warn{background:var(--red);border-color:var(--red-deep);color:#fff}
-button.ghost{background:none;color:var(--ink);border:0;box-shadow:none;padding:10px 8px;text-decoration:underline;min-height:48px}
-header.top button.ghost{color:var(--paper);text-decoration:none;font-size:.85rem}
-button.modebtn{width:100%;text-align:left;padding:18px;font-size:1.05rem;display:block}
-button.modebtn .mut{color:var(--ink-soft-dk)} /* descripción legible sobre fondo tinta */
-button.modebtn .small{letter-spacing:.04em}
+button.sec{background:#fff;color:var(--ink);border-color:var(--border-2)}
+button.sec:active{background:#f0f0f3}
+button.warn{background:var(--accent);border-color:var(--accent-dk);color:#fff}
+button.ghost{background:none;color:var(--accent);border:0;padding:8px 6px;min-height:36px;font-weight:500}
+button.modebtn{width:100%;text-align:left;display:block;background:#fff;color:var(--ink);border-color:var(--border-2);font-weight:500}
+button.modebtn:active{background:#f0f0f3}
+button.modebtn .mut{color:var(--mut)}
+button.modebtn .small{letter-spacing:0}
 
-/* ---------- insignias → sellos ---------- */
+/* ---------- badges (flat) ---------- */
 .badge{
   display:inline-block;
-  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
-  letter-spacing:.18em;line-height:1;font-size:.72rem;
-  padding:.45em .8em .35em;
-  border:3px double currentColor;border-radius:2px;
-  transform:rotate(-6deg);opacity:.92;white-space:nowrap}
-.badge.demo{color:var(--red);background:rgba(178,58,44,.07)}
-.badge.draft{color:var(--amber-text);background:rgba(207,138,31,.08)}
-.badge.signed{color:var(--red);background:rgba(178,58,44,.07)}
-.badge.active{color:var(--ink);background:rgba(27,23,18,.05)}
-.badge.archived{color:var(--ink-soft);background:rgba(27,23,18,.03)}
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 7px;border:1px solid var(--border-2);border-radius:2px;
+  color:var(--mut);background:var(--bg);white-space:nowrap}
+.badge.demo{color:var(--danger);border-color:#eec5c1;background:var(--danger-bg)}
+.badge.draft{color:var(--warn-tx);border-color:#e8d9a8;background:var(--warn-bg)}
+.badge.signed{color:var(--ok-tx);border-color:#bfe0c3;background:var(--ok-bg)}
+.badge.active{color:var(--accent-dk);border-color:#b9cfe4;background:var(--accent-bg)}
+.badge.archived{color:var(--mut)}
 
-/* ---------- tarjetas de lista → volantes ---------- */
+/* ---------- list rows ---------- */
 .listitem{
   display:block;width:100%;text-align:left;cursor:pointer;
-  border:2px solid var(--ink);background:var(--well);border-radius:0;
-  padding:14px 14px 12px;margin:12px 0;position:relative;
-  box-shadow:4px 4px 0 var(--rule);font-family:var(--f-body);color:var(--ink);
+  border:1px solid var(--border);background:#fff;border-radius:2px;
+  padding:10px 12px;margin:8px 0;
+  font-family:var(--f-body);color:var(--ink);font-size:.9rem;
   text-decoration:none}
 a.listitem{color:var(--ink)}
-.listitem:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--rule)}
-.listitem .idrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
-.listitem .id{font-family:var(--f-mono);font-size:12px;color:var(--ink-soft)}
+.listitem:active{background:#f4f4f6}
 
-/* ---------- PIN: puntos + teclado ---------- */
-.pin-label{text-align:center;font-family:var(--f-head);font-weight:700;font-size:13px;
-  letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);margin:18px 0 6px}
-.pinrow{display:flex;gap:12px;justify-content:center;margin:14px 0 8px}
+/* ---------- PIN ---------- */
+.pin-label{text-align:center;font-size:.7rem;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin:14px 0 6px}
+.pinrow{display:flex;gap:10px;justify-content:center;margin:12px 0 6px}
 .pinrow input{
-  /* fluido: las 6 casillas se reparten el ancho (sin desbordar a 360px);
-     max-width mantiene el tamaño de escritorio */
-  flex:1 1 0;min-width:0;max-width:60px;width:60px;height:70px;text-align:center;
-  font-family:var(--f-mono);font-size:32px;font-weight:700;color:var(--ink);
-  border:3px solid var(--ink);background:var(--well);border-radius:0;padding:0;margin:0}
-.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+  flex:1 1 0;min-width:0;max-width:52px;width:52px;height:60px;text-align:center;
+  font-family:var(--f-mono);font-size:26px;font-weight:600;color:var(--ink);
+  border:1px solid var(--border-2);background:#fff;border-radius:2px;padding:0;margin:0}
+.pinrow input.filled{border-color:var(--accent);background:var(--accent-bg)}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0;touch-action:manipulation}
 .keypad button{
-  min-height:68px;margin:0;
-  border:2px solid var(--ink);background:var(--well);border-radius:0;box-shadow:none;
-  font-family:var(--f-head);font-weight:800;font-size:26px;color:var(--ink);letter-spacing:0}
-.keypad button:active{background:var(--ink);color:var(--paper);transform:none}
-.keypad button.fn{font-size:14px;letter-spacing:.14em;background:var(--paper-2);text-transform:uppercase}
+  min-height:60px;margin:0;
+  border:1px solid var(--border-2);background:#fff;border-radius:2px;
+  font-family:var(--f-body);font-weight:600;font-size:22px;color:var(--ink);
+  touch-action:manipulation}
+.keypad button:active{background:#e9e9ed}
+.keypad button.fn{font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:var(--bg)}
 .offline{
-  margin-top:18px;border:2px dashed var(--ink-soft);padding:10px 12px;
-  font-family:var(--f-mono);font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.6}
+  margin-top:14px;border:1px solid var(--border-2);border-radius:2px;padding:8px 10px;
+  font-family:var(--f-mono);font-size:.72rem;color:var(--mut);text-align:center;line-height:1.6;background:#fbfbfc}
 
-/* ---------- tablero ---------- */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);margin-bottom:16px}
-.stats .stat{padding:10px 6px;text-align:center;background:var(--well)}
-.stats .stat + .stat{border-left:2px solid var(--ink)}
-.stats .num{font-family:var(--f-mono);font-weight:700;font-size:24px}
-.stats .lbl{font-family:var(--f-head);font-weight:700;font-size:10px;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
-.filters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
-.filters button{
-  min-height:48px;margin:0;border:2px solid var(--ink);background:transparent;border-radius:0;box-shadow:none;
-  font-family:var(--f-head);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
-.filters button.on{background:var(--ink);color:var(--paper)}
+/* ---------- status strips ---------- */
 .sync-strip{
-  border:2px solid var(--amber);background:var(--amber-wash);
-  font-family:var(--f-mono);font-size:13px;padding:10px 12px;margin-bottom:16px;
+  border:1px solid #e8d9a8;background:var(--warn-bg);
+  font-family:var(--f-mono);font-size:.78rem;color:var(--warn-tx);
+  padding:8px 10px;margin-bottom:12px;border-radius:2px;
   display:flex;justify-content:space-between;align-items:center}
-.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
-
-/* ---------- llenar formulario ---------- */
-.formid{display:flex;justify-content:space-between;align-items:center;
-  font-family:var(--f-mono);font-size:12px;color:var(--ink-soft);margin-bottom:4px}
-.recibido-banner{
-  border:3px double var(--red);padding:14px;text-align:center;margin-top:22px;
-  transform:rotate(-1.5deg);background:rgba(178,58,44,.05)}
-.recibido-banner .stamp{font-size:22px}
-
-/* ---------- firma ---------- */
-.signbox{border:2px solid var(--ink);background:var(--well);min-height:180px;position:relative;margin:6px 0 10px}
-.signbox canvas.sig{
-  border:0;border-radius:0;background:transparent;
-  width:100%;height:180px;touch-action:none;display:block}
-.signbox .xline{position:absolute;left:16px;right:16px;bottom:30px;border-bottom:2px solid var(--ink);pointer-events:none}
-.signbox .xline::before{content:"X";font-family:var(--f-mono);font-size:20px;position:absolute;left:0;top:-24px}
-.signbox .cap{position:absolute;left:16px;bottom:8px;font-family:var(--f-head);
-  font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);pointer-events:none}
-
-/* ---------- detalle / kv ---------- */
-.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.95rem;margin:8px 0}
-.kv dt{color:var(--ink-soft);font-family:var(--f-head);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}
-.kv dd{margin:0;word-break:break-word;font-family:var(--f-mono);font-size:.92rem}
-hr{border:0;border-top:1px solid var(--rule);margin:14px 0}
-.off{opacity:.55;filter:grayscale(.4)}
-
-/* ---------- demo: cuarentena visible ---------- */
+.draft-banner{
+  border:1px solid #b9cfe4;background:var(--accent-bg);border-radius:2px;
+  padding:10px 12px;margin-bottom:12px;font-size:.85rem;color:var(--accent-dk)}
 .demo-banner{
-  border:3px double var(--red);padding:12px;text-align:center;margin:26px 0 4px;
-  transform:rotate(-1.5deg);background:rgba(178,58,44,.06);
-  font-family:var(--f-head);font-weight:900;text-transform:uppercase;
-  letter-spacing:.18em;font-size:15px;color:var(--red)}
-.demo-banner .stamp{font-size:16px}
+  border:1px solid #eec5c1;background:var(--danger-bg);border-radius:2px;
+  padding:10px 12px;text-align:center;margin:12px 0 4px;
+  font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--danger)}
+.demo-banner .stamp{font-size:.68rem}
+
+/* ---------- signature ---------- */
+.signbox{border:1px solid var(--border-2);background:#fff;min-height:170px;position:relative;margin:6px 0 10px;border-radius:2px}
+.signbox canvas.sig{border:0;border-radius:0;background:transparent;width:100%;height:170px;touch-action:none;display:block}
+.signbox .xline{position:absolute;left:14px;right:14px;bottom:28px;border-bottom:1px solid var(--border-2);pointer-events:none}
+.signbox .xline::before{content:"X";font-family:var(--f-mono);font-size:16px;color:var(--faint);position:absolute;left:0;top:-22px}
+.signbox .cap{position:absolute;left:14px;bottom:8px;
+  font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);pointer-events:none}
+
+/* ---------- detail kv ---------- */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.88rem;margin:8px 0}
+.kv dt{color:var(--mut);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.kv dd{margin:0;word-break:break-word;font-family:var(--f-mono);font-size:.85rem}
+.kv .pv{border-bottom:1px solid var(--border);min-height:1.3em;padding:2px 0}
+hr{border:0;border-top:1px solid var(--border);margin:12px 0}
+.formid{display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--f-mono);font-size:.72rem;color:var(--faint);margin-bottom:4px}
 
 /* ---------- toast ---------- */
 .toast{
-  position:fixed;left:50%;transform:translateX(-50%) rotate(-1deg);bottom:90px;
-  background:var(--ink);color:var(--paper);padding:12px 20px;border:2px solid #000;
-  box-shadow:5px 5px 0 rgba(0,0,0,.45);z-index:99;max-width:90vw;font-size:.95rem;
-  font-family:var(--f-head);letter-spacing:.06em;text-transform:uppercase}
+  position:fixed;left:50%;transform:translateX(-50%);bottom:84px;
+  background:#1d1d1f;color:#fff;padding:10px 16px;border-radius:3px;
+  z-index:99;max-width:90vw;font-size:.85rem}
 
-/* ---------- pie de navegación ---------- */
+/* ---------- bottom nav ---------- */
 footer.foot{
-  position:fixed;bottom:0;left:0;right:0;background:var(--desk);
-  border-top:2px solid #14100a;display:flex;z-index:20;
-  box-shadow:0 -2px 8px rgba(0,0,0,.4)}
+  position:fixed;bottom:0;left:0;right:0;background:var(--card);
+  border-top:1px solid var(--border);display:flex;z-index:20}
 footer.foot button{
-  flex:1;margin:0;border:0;border-radius:0;background:transparent;color:var(--paper);
-  padding:14px 4px;font-size:.85rem;box-shadow:none;min-height:60px}
-footer.foot button.on{background:var(--ink);color:var(--amber)}
+  flex:1;margin:0;border:0;border-radius:0;background:transparent;color:var(--mut);
+  padding:12px 4px;font-size:.8rem;font-weight:500;min-height:56px}
+footer.foot button.on{color:var(--accent-dk);box-shadow:inset 0 2px 0 var(--accent)}
 
-/* ---------- impresión: la hoja de papel real ---------- */
+/* ---------- print ---------- */
 @media print{
   body{background:#fff;padding:0}
   #app{max-width:none;padding:0}
   header.top,footer.foot,.noprint,.toast,.card.noprint,.screen-only{display:none!important}
-  /* papel: tinta negra sobre hoja blanca, sin fondos que devoren tinta */
-  .card{border:2px solid #1b1712;box-shadow:none;margin:0 0 14px;padding:20px;background:#fff}
+  .card{border:1px solid #999;margin:0 0 12px;padding:16px;background:#fff}
   table.form th{background:none}
-  .section-tag{background:none;color:#1b1712;box-shadow:none;transform:none;border-color:#1b1712}
-  .card::before{display:none}
+  .section-tag{color:#333}
   .print-area{display:block!important}
-  .stamp{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   table.form{display:table}
   a{color:#000;text-decoration:none}
-  .kv{border-top:1px solid #ddd1b4;padding-top:8px}
-  .kv dt{color:#5c5340}
-  .kv .pv{border-bottom:1px solid #999;min-height:1.4em;padding:2px 0}
+  .kv{border-top:1px solid #e2e2e8;padding-top:8px}
+  .kv dt{color:#6e6e73}
+  .kv .pv{border-bottom:1px solid #999;min-height:1.3em;padding:2px 0}
   table.form tr,.signbox,.kv{break-inside:avoid;page-break-inside:avoid}
-  /* la firma impresa nunca se parte */
   .print-area img{break-inside:avoid;page-break-inside:avoid}
-  /* el encabezado de sección va pegado a su contenido, nunca huérfano al pie */
   h3{break-after:avoid;page-break-after:avoid}
 }
-/* márgenes de papel reales, no los del navegador */
 @page{margin:12mm}
 .print-area .pv{border-bottom:1px solid #999;min-height:1.2em;padding:2px 0}
 
 /* ---------- responsive ---------- */
 @media (max-width:600px){
   #app{padding:0 10px}
-  header.top{margin:0 -10px} /* igualar al padding de #app: evita sangrado horizontal */
-  .card{padding:22px 16px 26px}
-  .masthead h1,.masthead h2{font-size:30px}
-  .pinrow input{height:64px;font-size:28px}
-  .keypad button{min-height:64px}
-  .stamp.demo-corner{font-size:14px;top:12px;right:10px}
+  header.top{margin:0 -10px}
+  .card{padding:16px 14px}
+  .masthead h1,.masthead h2{font-size:1.15rem}
+  .pinrow input{height:56px;font-size:24px}
+  .keypad button{min-height:56px}
   .kv{grid-template-columns:1fr}
-  .kv dt{margin-top:8px}
+  .kv dt{margin-top:6px}
 }

@@ -91,7 +91,7 @@ const STR = {
     teamNameReq: "Escriba el nombre del equipo.", teamAdded: "Equipo registrado.",
     addTeam: "＋ Registrar equipo",
     submittedBy: "Por", at: "el", noItems: "Nada aquí todavía.",
-    demoLive: "VER DEMO EN VIVO", demoBanner: "⚠ DEMO — datos simulados, no reales",
+    demoLive: "VER DEMO EN VIVO", demoBanner: "DEMO — datos simulados, no reales",
     demoView: "Vista demo en vivo", simOn: "Simulador activo: actividad demo cada ~25 s",
     close: "Cerrar", details: "Detalles", signature: "Firma", sigAlt: "Firma manuscrita",
     actorName: "Nombre de quien llena", submitSigned: "Guardar y firmar",
@@ -106,6 +106,7 @@ const STR = {
     noAuth: "Sesión expirada, vuelva a entrar.",
     viewForm: "Ver", fieldValues: "Valores", loading: "Cargando…",
     listenErr: "No se pudo cargar la lista. Revise su conexión.",
+    timeoutErr: "La carga tardó demasiado. Compruebe su conexión e inténtelo de nuevo.",
     retry: "Reintentar",
     indexErr: "Falta un índice compuesto en la consola de Firebase — solo un operador puede crearlo. Avise al coordinador.",
     orgline: "Centro de Formularios · CERT",
@@ -182,7 +183,7 @@ const STR = {
     teamNameReq: "Enter the team name.", teamAdded: "Team registered.",
     addTeam: "+ Register team",
     submittedBy: "By", at: "at", noItems: "Nothing here yet.",
-    demoLive: "VIEW LIVE DEMO", demoBanner: "⚠ DEMO — simulated data, not real",
+    demoLive: "VIEW LIVE DEMO", demoBanner: "DEMO — simulated data, not real",
     demoView: "Live demo view", simOn: "Simulator on: demo activity every ~25 s",
     close: "Close", details: "Details", signature: "Signature", sigAlt: "Handwritten signature",
     actorName: "Filler name", submitSigned: "Save and sign",
@@ -197,6 +198,7 @@ const STR = {
     noAuth: "Session expired, sign in again.",
     viewForm: "View", fieldValues: "Values", loading: "Loading…",
     listenErr: "Could not load the list. Check your connection.",
+    timeoutErr: "Loading took too long. Check your connection and try again.",
     retry: "Retry",
     indexErr: "A composite index is missing in the Firebase console — only an operator can create it. Tell the coordinator.",
     orgline: "CERT Forms Center",
@@ -315,10 +317,35 @@ function renderScansList() { renderScans(S.scanSubId); }
 function retryList(elId) { const fn = RETRY_VIEW[elId] && window[RETRY_VIEW[elId]]; if (fn) fn(); }
 const snapErr = elId => err => {
   const el = $(elId); if (!el) return;
-  const missing = err && /precondition/i.test(String(err.code || err));
-  const msg = missing ? t('indexErr') : t('listenErr');
+  const code = String((err && err.code) || '');
+  const emsg = String((err && err.message) || err || '');
+  const timedOut = /timeout/i.test(code) || /timeout/i.test(emsg);
+  const missing = /precondition/i.test(code) || /precondition/i.test(emsg);
+  const msg = timedOut ? t('timeoutErr') : (missing ? t('indexErr') : t('listenErr'));
   el.innerHTML = `<p class="mut small">${esc(msg)}</p><button class="ghost" onclick="retryList('${esc(elId)}')">${esc(t('retry'))}</button>`;
 };
+/* Firestore get()/onSnapshot() have no client-side timeout: on a stalled
+   stream the promise never settles and neither the data callback nor the
+   error callback ever fires — the UI sits on "Cargando…" forever.
+   withTimeout races a one-shot read against a timer; liveSnap adds the same
+   watchdog to live listeners (a late snapshot simply overwrites the error UI,
+   and unsubscribing clears the timer). */
+const LIST_TIMEOUT_MS = 15000;
+function withTimeout(p, ms) {
+  ms = ms || LIST_TIMEOUT_MS;
+  let timer = null;
+  const gate = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), ms); });
+  const settle = v => { clearTimeout(timer); return v; };
+  return Promise.race([p.then(settle, e => { clearTimeout(timer); throw e; }), gate]);
+}
+function liveSnap(elId, query, onData, ms) {
+  let done = false;
+  const timer = setTimeout(() => { if (!done) snapErr(elId)(new Error('timeout')); }, ms || LIST_TIMEOUT_MS);
+  const unsub = query.onSnapshot(
+    snap => { done = true; clearTimeout(timer); onData(snap); },
+    err => { done = true; clearTimeout(timer); snapErr(elId)(err); });
+  S.unsub.push(() => { done = true; clearTimeout(timer); try { unsub(); } catch (e) {} });
+}
 function stopDemo() { if (S.demoTimer) { clearInterval(S.demoTimer); S.demoTimer = null; } }
 
 /* ---------- audit ---------- */
@@ -505,8 +532,8 @@ async function bootUnlockCheck() {
 function chrome(titleHtml, opts = {}) {
   return `<header class="top"><div class="t">${titleHtml}</div>` +
     (opts.demo ? `<span class="tag">DEMO</span>` : '') +
-    `<button class="ghost" style="color:#fff" onclick="toggleLang()">${t('lang')}</button>` +
-    (opts.lock ? `<button class="ghost" style="color:#fff" onclick="lockNow()">🔒 ${t('lock')}</button>` : '') +
+    `<button class="ghost" onclick="toggleLang()">${t('lang')}</button>` +
+    (opts.lock ? `<button class="ghost" onclick="lockNow()">${t('lock')}</button>` : '') +
     `</header>`;
 }
 function footnav(active) {
@@ -535,7 +562,7 @@ function renderPin() {
   <div class="card center">
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
-      <h1>&#129682; Tablilla</h1>
+      <h1>Tablilla</h1>
       <div class="sub">${esc(t('appName'))}</div>
     </div>
     <div class="pin-label">${esc(t('pinTitle'))}</div>
@@ -552,40 +579,57 @@ function renderPin() {
     <div class="offline">&#9673; ${esc(t('offlineBanner'))}</div>
   </div>`;
   const boxes = [...document.querySelectorAll('#pinrow input')];
+  S.pinBoxes = boxes; // cached: pinKey/pinBack/pinClear reuse it instead of re-querying per tap
   boxes.forEach((b, i) => {
     b.addEventListener('input', () => { b.value = b.value.replace(/\D/g,'').slice(0,1);
-      if (b.value && i < 5) boxes[i+1].focus(); if (i === 5 && b.value) submitPin(); });
-    b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i-1].focus(); });
+      b.classList.toggle('filled', !!b.value);
+      if (b.value && i < 5) boxes[i+1].focus({preventScroll:true});
+      if (i === 5 && b.value) once('submitPin', submitPin); });
+    b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i-1].focus({preventScroll:true}); });
   });
   // paste the full 6-digit PIN across the boxes instead of truncating to one digit
   document.getElementById('pinrow').addEventListener('paste', e => {
     const digits = ((e.clipboardData || {}).getData('text') || '').replace(/\D/g, '').slice(0, 6);
     if (!digits) return;
     e.preventDefault();
-    boxes.forEach((b, i) => { b.value = digits[i] || ''; });
+    boxes.forEach((b, i) => { b.value = digits[i] || ''; b.classList.toggle('filled', !!b.value); });
     const next = boxes.findIndex(b => !b.value);
-    (next >= 0 ? boxes[next] : boxes[5]).focus();
-    if (digits.length === 6) submitPin();
+    (next >= 0 ? boxes[next] : boxes[5]).focus({preventScroll:true});
+    if (digits.length === 6) once('submitPin', submitPin);
   });
-  boxes[0].focus();
+  boxes[0].focus({preventScroll:true});
+}
+/* Cached box list: the old pinKey re-queried the DOM on every tap and moved
+   focus without preventScroll — on mobile each digit meant a keyboard-anchor
+   move plus a scroll-into-view, the sluggish feel. Now: one cached list,
+   instant .filled visual feedback (direct class toggle, no layout wait),
+   focus moves with preventScroll, and the 6th digit goes through the once()
+   in-flight guard so double-taps can't double-submit. */
+function pinBoxes() {
+  if (!S.pinBoxes || !S.pinBoxes.length || !document.contains(S.pinBoxes[0]))
+    S.pinBoxes = [...document.querySelectorAll('#pinrow input')];
+  return S.pinBoxes;
 }
 function pinKey(d) { // on-screen keypad feeds the same #pinrow inputs as a hardware keyboard
-  const boxes = [...document.querySelectorAll('#pinrow input')];
+  const boxes = pinBoxes();
   const i = boxes.findIndex(b => !b.value);
   if (i < 0) return;
   boxes[i].value = d;
-  if (i < 5) boxes[i+1].focus(); else submitPin();
+  boxes[i].classList.add('filled');
+  if (i < 5) boxes[i+1].focus({preventScroll:true});
+  else once('submitPin', submitPin);
 }
 function pinBack() {
-  const boxes = [...document.querySelectorAll('#pinrow input')];
+  const boxes = pinBoxes();
   for (let i = boxes.length - 1; i >= 0; i--) {
-    if (boxes[i].value) { boxes[i].value = ''; boxes[i].focus(); return; }
+    if (boxes[i].value) { boxes[i].value = ''; boxes[i].classList.remove('filled'); boxes[i].focus({preventScroll:true}); return; }
   }
-  boxes[0].focus();
+  boxes[0].focus({preventScroll:true});
 }
 function pinClear() {
-  const boxes = [...document.querySelectorAll('#pinrow input')];
-  boxes.forEach(b => b.value = ''); boxes[0].focus();
+  const boxes = pinBoxes();
+  boxes.forEach(b => { b.value = ''; b.classList.remove('filled'); });
+  boxes[0].focus({preventScroll:true});
 }
 
 /* ---------- view: mode choice ---------- */
@@ -593,8 +637,8 @@ function renderMode() {
   S.view = 'mode';
   app().innerHTML = chrome(t('appName'), {lock:true}) + `
   <div class="card"><h2>${esc(t('chooseMode'))}</h2>
-    <button class="modebtn" onclick="modeKiosk()">🖥️ <b>${esc(t('kiosk'))}</b><br><span class="small mut">${esc(t('kioskSub'))}</span></button>
-    <button class="modebtn" onclick="modePersonal()">👤 <b>${esc(t('personal'))}</b><br><span class="small mut">${esc(t('personalSub'))}</span></button>
+    <button class="modebtn" onclick="modeKiosk()"><b>${esc(t('kiosk'))}</b><br><span class="small mut">${esc(t('kioskSub'))}</span></button>
+    <button class="modebtn" onclick="modePersonal()"><b>${esc(t('personal'))}</b><br><span class="small mut">${esc(t('personalSub'))}</span></button>
   </div>` + footnav('');
 }
 function modeKiosk() {
@@ -619,7 +663,7 @@ function startKiosk() {
 function modePersonal() {
   S.view = 'personal';
   app().innerHTML = chrome(t('appName'), {lock:true}) + `
-  <div class="card"><h2>👤 ${esc(t('personal'))}</h2>
+  <div class="card"><h2>${esc(t('personal'))}</h2>
     <label class="f" for="pemail">${esc(t('email'))}</label><input id="pemail" type="email" autocomplete="email">
     <label class="f" for="ppass">${esc(t('pass'))}</label><input id="ppass" type="password" autocomplete="current-password">
     <button onclick="doLogin()">${esc(t('login'))}</button>
@@ -686,12 +730,12 @@ function renderIncidents() {
       <div class="orgline">${esc(t('orgline'))}</div>
       <h2>${esc(t('incidents'))}</h2>
     </div>
-    ${stashed ? `<div class="draft-banner"><p>⚠️ ${esc(t('draftFound'))}</p>
+    ${stashed ? `<div class="draft-banner"><p>${esc(t('draftFound'))}</p>
       <button class="sec small" onclick="restoreStashedDraft()">${esc(t('restore'))}</button>
       <button class="ghost small" onclick="discardStashedDraft()">${esc(t('discard'))}</button></div>` : ''}
     ${qlen ? `<div class="sync-strip"><span>&#9673; ${qlen} ${esc(t('formsPending'))}</span><span>&rarr;</span></div>` : ''}
     <button class="warn" onclick="renderNewIncident()">+ ${esc(t('newIncident'))}</button>
-    <button class="ghost small" onclick="renderBugReport()">🐞 ${esc(t('bugReport'))}</button>
+    <button class="ghost small" onclick="renderBugReport()">${esc(t('bugReport'))}</button>
     <div class="field"><input type="search" id="incsearch" aria-label="${esc(t('searchPh'))}" placeholder="${esc(t('searchPh'))}" oninput="onIncSearch(this.value)"></div>
     <div id="incstrip" class="small mut"></div>
     <div id="inclist"><p class="mut">${esc(t('loading'))}</p></div>
@@ -699,7 +743,8 @@ function renderIncidents() {
   </div>` + footnav('incidents');
   if (!FB_OK) { $('inclist').innerHTML = `<p class="mut">${esc(t('routeErrOffline'))}</p>`; return; }
   // total count, best-effort (includes demo:true docs; the strip is an indicator, not exact)
-  db.collection('incidents').count().get()
+  // withTimeout: a stalled count() must not wedge the list on "Cargando…"
+  withTimeout(db.collection('incidents').count().get())
     .then(c => { S.incTotal = c.data().count; drawIncList(); })
     .catch(() => { S.incTotal = null; });
   moreIncidents();
@@ -739,7 +784,9 @@ async function moreIncidents() {
   try {
     let q = db.collection('incidents').orderBy('createdAt','desc').limit(INC_PAGE);
     if (S.incCursor) q = q.startAfter(S.incCursor);
-    const snap = await q.get();
+    // withTimeout: a stalled get() used to leave "Cargando…" up forever;
+    // now it surfaces the error UI with a retry button instead.
+    const snap = await withTimeout(q.get());
     if (!snap.size) { S.incDone = true; }
     else {
       snap.forEach(d => { const x = d.data(); if (x.demo === true) return; S.incItems.push({id:d.id, ...x}); });
@@ -804,7 +851,7 @@ function openIncident(id) { S.incidentId = id; S.view = 'dashboard'; stopDemo();
 function renderDashboard() {
   stopListeners();
   const myId = S.incidentId, mySeq = ++S.dashSeq; // stale guard: a newer render supersedes this one
-  app().innerHTML = chrome(`📋 ${esc(t('dashboard'))}`, {lock:true}) + `
+  app().innerHTML = chrome(`${esc(t('dashboard'))}`, {lock:true}) + `
   <div class="card"><p class="mut small">${esc(t('loading'))}</p></div>` + footnav('incidents');
   const incRef = db.collection('incidents').doc(myId);
   incRef.get().then(d => {
@@ -812,7 +859,7 @@ function renderDashboard() {
     S.incident = d.data() || {};
     drawDashShell();
     // live: teams subcollection
-    S.unsub.push(incRef.collection('teams').onSnapshot(snap => {
+    liveSnap('dash-teams', incRef.collection('teams'), snap => {
       const el = $('dash-teams'); if (!el) return;
       // skip demo:true like the submissions/scans lists below — demo teams stay in the demo view
       const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
@@ -821,10 +868,10 @@ function renderDashboard() {
           <dt><b>${esc(tm.name || tm.id)}</b></dt><dd>${esc(tm.status || '—')}</dd>
           <dt class="small">${esc(t('submittedBy'))}</dt><dd class="small mut">${esc(tm.actor||'—')} · ${fmtT(tm.at)}</dd>
         </div>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-    }, snapErr('dash-teams')));
+    });
     // live: submissions
-    S.unsub.push(db.collection('submissions').where('incidentId','==',S.incidentId)
-      .orderBy('createdAt','desc').limit(30).onSnapshot(snap => {
+    liveSnap('dash-subs', db.collection('submissions').where('incidentId','==',S.incidentId)
+      .orderBy('createdAt','desc').limit(30), snap => {
         const el = $('dash-subs'); if (!el) return;
         const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
         el.innerHTML = rows.length ? rows.map(r => `
@@ -832,30 +879,30 @@ function renderDashboard() {
             <b>${esc(tplName(r.templateId))}</b> <span class="badge ${r.status==='signed'?'signed':'draft'}">${esc(r.status==='signed'?t('signed'):t('draft'))}</span><br>
             <span class="small mut">${esc(r.team||'')} · ${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span>
           </a>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-      }, snapErr('dash-subs')));
+      });
     // live: scans
-    S.unsub.push(db.collection('scans').where('incidentId','==',S.incidentId)
-      .orderBy('createdAt','desc').limit(30).onSnapshot(snap => {
+    liveSnap('dash-scans', db.collection('scans').where('incidentId','==',S.incidentId)
+      .orderBy('createdAt','desc').limit(30), snap => {
         const el = $('dash-scans'); if (!el) return;
         const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
         el.innerHTML = rows.length ? rows.map(r => `
-          <div class="listitem"><b>📎 ${esc(r.fileName||r.id)}</b>${scanLinkHtml(r)}<br>
+          <div class="listitem"><b>${esc(r.fileName||r.id)}</b>${scanLinkHtml(r)}<br>
           <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
           : `<p class="mut small">${esc(t('noItems'))}</p>`;
-      }, snapErr('dash-scans')));
-  }).catch(() => { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p class="mut">${esc(t('routeErrOffline'))}</p></div>`; });
+      });
+  }).catch(() => { app().innerHTML = chrome(t('appName'), {lock:true}) + `<div class="card"><p class="mut">${esc(t('routeErrOffline'))}</p></div>`; });
 }
 /* T09: downloadURL is attacker-writable data — the safeUrl() allowlist
    keeps javascript:/data: URLs from ever becoming clickable links. */
 function scanLinkHtml(r) {
   if (!r.downloadURL) return '';
   const u = safeUrl(r.downloadURL);
-  if (u) return ` <a href="${esc(u)}" target="_blank" rel="noopener">🔗 ${esc(t('viewForm'))}</a>`;
-  return ` <span class="badge">⛔ ${esc(t('linkBlocked'))}</span>`;
+  if (u) return ` <a href="${esc(u)}" target="_blank" rel="noopener">${esc(t('viewForm'))}</a>`;
+  return ` <span class="badge">${esc(t('linkBlocked'))}</span>`;
 }
 function drawDashShell() {
   const i = S.incident;
-  app().innerHTML = chrome(`📋 ${esc(i.name_es || S.incidentId)}`, {lock:true}) + `
+  app().innerHTML = chrome(`${esc(i.name_es || S.incidentId)}`, {lock:true}) + `
   <div class="card">
     <div class="masthead">
       <div class="orgline">${esc(t('orgline'))}</div>
@@ -967,7 +1014,7 @@ function fieldInput(f, prefix, val) {
     if (!mapped) {
       // T33: unsupported field types fail LOUDLY — never silently degrade to text
       console.warn('CERT Forms Center: unsupported field type', f.type, '— field:', f.name);
-      ctrl = `<span class="unsupported" role="note">⚠ ${esc(t('unsupportedType'))}: ${esc(f.type)} (${esc(f.name)})</span>`;
+      ctrl = `<span class="unsupported" role="note">${esc(t('unsupportedType'))}: ${esc(f.type)} (${esc(f.name)})</span>`;
     } else {
       ctrl = `<input type="${mapped}" id="${id}" data-f="${esc(f.name)}" value="${esc(v)}">`;
     }
@@ -994,7 +1041,7 @@ function tableHtml(tb, prefix, rows, sec) {
         if (!mapped) console.warn('CERT Forms Center: unsupported table column type', c.type, '— column:', c.name);
         ctrl = mapped
           ? `<input type="${mapped}" id="${id}" ${an} data-t="${esc(tb.name)}" data-r="${r}" data-c="${esc(c.name)}" value="${esc(v)}">`
-          : `<span class="unsupported" role="note">⚠ ${esc(t('unsupportedType'))}: ${esc(c.type)}</span>`; }
+          : `<span class="unsupported" role="note">${esc(t('unsupportedType'))}: ${esc(c.type)}</span>`; }
       body += `<td>${ctrl}</td>`;
     }
     body += `<td><button class="ghost" type="button" aria-label="${esc(t('delRowAria'))}" onclick="this.closest('tr').remove()">${t('delRow')}</button></td></tr>`;
@@ -1201,7 +1248,7 @@ async function renderTemplates() {
     return;
   }
   $('tpllist').innerHTML = m.map(x => `
-    <button class="modebtn" onclick="renderFill('${x.id}')">📄 <b>${esc(LANG==='es'?x.name_es:x.name_en)}</b><br>
+    <button class="modebtn" onclick="renderFill('${x.id}')"><b>${esc(LANG==='es'?x.name_es:x.name_en)}</b><br>
     <span class="small mut">v${x.version} · ${esc(x.id)}</span></button>`).join('');
 }
 
@@ -1215,13 +1262,13 @@ async function renderFill(tplId) {
   <div class="card"><p class="mut">${esc(t('loading'))}</p></div>` + footnav('incidents');
   let xml;
   try { xml = await loadTemplateXml(tplId); }
-  catch (e) { app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
+  catch (e) { app().innerHTML = chrome(t('appName'), {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button></div>`; return; }
   if (tok !== fillToken) return; // superseded by a newer renderFill
   curForm = null;
   try { curForm = parseForm(xml); }
   catch (e) { // malformed XML: friendly error, never eternal "Cargando…"
-    app().innerHTML = chrome('⚠', {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
+    app().innerHTML = chrome(t('appName'), {lock:true}) + `<div class="card"><p>${esc(t('tplFail'))}</p>
     <button class="ghost" onclick="renderTemplates()">${esc(t('back'))}</button></div>`; return; }
   const f = curForm, P = 'fld';
   /* T21: one UUID per submission *intent* — minted when the form opens and
@@ -1234,7 +1281,7 @@ async function renderFill(tplId) {
   const footNonsig = f.footer.filter(x => x.type !== 'signature');
   const footSig = f.footer.filter(x => x.type === 'signature');
   const secClose = pad(2 + f.tables.length), secSign = pad(3 + f.tables.length);
-  app().innerHTML = chrome(`📝 ${esc(LANG==='es'?f.title:f.title_en)}`, {lock:true}) + `
+  app().innerHTML = chrome(`${esc(LANG==='es'?f.title:f.title_en)}`, {lock:true}) + `
   <div class="card screen-only">
     <div class="formid"><span>N.&ordm; ${esc(f.id)} &middot; v${esc(String(f.version||1))}</span><span>${esc(t('fillOut'))}</span></div>
     <div class="masthead">
@@ -1363,7 +1410,7 @@ async function renderSubmission(id) {
     return `<h3>${esc(tn)}</h3><table class="form"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
       rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] === true ? '✓' : r[c] === false ? '✗' : (r[c] ?? ''))}</td>`).join('')}</tr>`).join('') + `</tbody></table>`;
   }).join('');
-  app().innerHTML = chrome(`📄 ${esc(name)}`, {lock:true}) + `
+  app().innerHTML = chrome(`${esc(name)}`, {lock:true}) + `
   <div class="card print-area">
     ${s.demo === true ? `<span class="stamp red demo-corner">Demo</span>` : ''}
     <div class="formid"><span>N.&ordm; ${esc(s.templateId||'')}</span><span>${fmtT(s.createdAt)}</span></div>
@@ -1381,8 +1428,8 @@ async function renderSubmission(id) {
     <h3>${esc(t('fieldValues'))}</h3>${rows}${trows}
   </div>
   <div class="card screen-only noprint">
-    <button onclick="window.print()">🖨️ ${esc(t('print'))}</button>
-    <button class="sec" onclick="renderScans('${esc(id)}')">📎 ${esc(t('uploadScan'))}</button>
+    <button onclick="window.print()">${esc(t('print'))}</button>
+    <button class="sec" onclick="renderScans('${esc(id)}')">${esc(t('uploadScan'))}</button>
     <button class="ghost" onclick="renderDashboard()">${esc(t('back'))}</button>
   </div>` + footnav('incidents');
 }
@@ -1391,7 +1438,7 @@ async function renderSubmission(id) {
 function renderScans(subId) {
   S.view = 'scans'; S.scanSubId = subId || null; stopListeners();
   S.scanRows = []; S.scanQuery = '';
-  app().innerHTML = chrome(`📎 ${esc(t('scans'))}`, {lock:true}) + `
+  app().innerHTML = chrome(`${esc(t('scans'))}`, {lock:true}) + `
   <div class="card">
     <label class="f" for="scanfile">${esc(t('pickFile'))}</label>
     <input type="file" id="scanfile" accept="image/*,.pdf">
@@ -1401,11 +1448,11 @@ function renderScans(subId) {
   <div class="card"><h3>${esc(t('scans'))}</h3>
     <div class="field"><input type="search" id="scansearch" aria-label="${esc(t('searchScansPh'))}" placeholder="${esc(t('searchScansPh'))}" oninput="onScanSearch(this.value)"></div>
     <div id="scanlist"><p class="mut">${esc(t('loading'))}</p></div></div>` + footnav('incidents');
-  S.unsub.push(db.collection('scans').where('incidentId','==',S.incidentId).orderBy('createdAt','desc').limit(30)
-    .onSnapshot(snap => {
+  liveSnap('scanlist', db.collection('scans').where('incidentId','==',S.incidentId).orderBy('createdAt','desc').limit(30),
+    snap => {
       const rows = []; snap.forEach(x => { const v = x.data(); if (v.demo === true) return; rows.push({id:x.id, ...v}); });
       S.scanRows = rows; drawScanList();
-    }, snapErr('scanlist')));
+    });
 }
 function onScanSearch(q) { S.scanQuery = (q || '').trim().toLowerCase(); drawScanList(); }
 function drawScanList() {
@@ -1416,7 +1463,7 @@ function drawScanList() {
     String(r.actor || '').toLowerCase().includes(q) ||
     String(r.status || '').toLowerCase().includes(q)) : S.scanRows;
   el.innerHTML = rows.length ? rows.map(r => `
-    <div class="listitem"><b>📎 ${esc(r.fileName||'')}</b>${r.status==='pending'?` <span class="badge">⏳ ${esc(t('pending'))}</span>`:''}${scanLinkHtml(r)}<br>
+    <div class="listitem"><b>${esc(r.fileName||'')}</b>${r.status==='pending'?` <span class="badge">${esc(t('pending'))}</span>`:''}${scanLinkHtml(r)}<br>
     <span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('')
     : `<p class="mut">${esc(t('noItems'))}</p>`;
 }
@@ -1474,7 +1521,7 @@ function renderBugReport() {
     .map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
   const areaOpts = [['forms', t('areaForms')], ['scans', t('areaScans')], ['incidents', t('areaIncidents')], ['other', t('areaOther')]]
     .map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
-  app().innerHTML = chrome(`🐞 ${esc(t('bugReport'))}`, {lock:true}) + `
+  app().innerHTML = chrome(`${esc(t('bugReport'))}`, {lock:true}) + `
   <div class="card">
     <div class="field"><label class="f" for="bug-title">${esc(t('bugTitle'))}</label>
       <input id="bug-title" maxlength="120" placeholder="${esc(t('bugTitlePh'))}"></div>
@@ -1517,12 +1564,13 @@ async function submitBug() {
 }
 async function renderBugTriage() {
   S.view = 'bugtriage'; stopListeners();
-  app().innerHTML = chrome(`🐞 ${esc(t('bugTriage'))}`, {lock:true}) + `
+  app().innerHTML = chrome(`${esc(t('bugTriage'))}`, {lock:true}) + `
   <div class="card"><div id="buglist"><p class="mut">${esc(t('loading'))}</p></div>
   <button class="ghost" onclick="renderBugReport()">${esc(t('back'))}</button></div>` + footnav('incidents');
   if (!FB_OK) { $('buglist').innerHTML = `<p class="mut">${esc(t('routeErrOffline'))}</p>`; return; }
-  S.unsub.push(db.collection('bugReports').where('status','==','open')
-    .orderBy('createdAt','desc').limit(50).onSnapshot(snap => {
+  liveSnap('buglist', db.collection('bugReports').where('status','==','open')
+    .orderBy('createdAt','desc').limit(50),
+    snap => {
       const el = $('buglist'); if (!el) return;
       const rows = []; snap.forEach(d => rows.push({id:d.id, ...d.data()}));
       el.innerHTML = rows.length ? rows.map(r => `
@@ -1530,7 +1578,7 @@ async function renderBugTriage() {
         <span class="badge">${esc(r.severity || '')}</span> <span class="small mut">${esc(r.area || '')}</span><br>
         <span class="small mut">${esc(r.reporter || '')} · ${fmtT(r.createdAt)}</span></div>`).join('')
         : `<p class="mut">${esc(t('noItems'))}</p>`;
-    }, snapErr('buglist')));
+    });
 }
 
 /* ---------- DEMO: live view + simulator ---------- */
@@ -1549,7 +1597,7 @@ let demoStep = 0;
 function enterDemo() { S.view = 'demo'; stopListeners(); renderDemoView(); startDemoSim(); }
 async function renderDemoView() {
   S.view = 'demo'; S.demoView = true; setHash(routeFor('demo'));
-  app().innerHTML = chrome(`🎭 ${esc(t('demoView'))}`, {demo:true}) + `
+  app().innerHTML = chrome(`${esc(t('demoView'))}`, {demo:true}) + `
   <div class="card">
     <span class="stamp red demo-corner">Demo</span>
     <div class="masthead">
@@ -1564,16 +1612,17 @@ async function renderDemoView() {
   <div class="card"><h3>${esc(t('submissions'))} <span class="badge demo">DEMO</span></h3><div id="demo-subs"><p class="mut small">${esc(t('loading'))}</p></div></div>
   <div class="card"><h3>${esc(t('scans'))} <span class="badge demo">DEMO</span></h3><div id="demo-scans"><p class="mut small">${esc(t('loading'))}</p></div></div>`;
   if (!FB_OK) return;
-  S.unsub.push(db.collection('incidents').doc(DEMO_ORG_ID).collection('teams')
-    .onSnapshot(snap => { const el = $('demo-teams'); if (!el) return;
+  liveSnap('demo-teams', db.collection('incidents').doc(DEMO_ORG_ID).collection('teams'),
+    snap => { const el = $('demo-teams'); if (!el) return;
       const rows = []; snap.forEach(x => rows.push({id:x.id, ...x.data()}));
       el.innerHTML = rows.length ? rows.map(tm => `<div class="kv"><dt><b>${esc(tm.name||tm.id)}</b></dt><dd>${esc(tm.status||'—')} <span class="small mut">· ${esc(tm.actor||'')}</span></dd></div>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-    }, snapErr('demo-teams')));
-  const demoList = (coll, elId) => S.unsub.push(db.collection(coll).where('demo','==',true)
-    .orderBy('createdAt','desc').limit(20).onSnapshot(snap => { const el = $(elId); if (!el) return;
+    });
+  const demoList = (coll, elId) => liveSnap(elId, db.collection(coll).where('demo','==',true)
+    .orderBy('createdAt','desc').limit(20),
+    snap => { const el = $(elId); if (!el) return;
       const rows = []; snap.forEach(x => rows.push({id:x.id, ...x.data()}));
       el.innerHTML = rows.length ? rows.map(r => `<div class="listitem"><b>${esc(coll==='submissions'?tplName(r.templateId):(r.fileName||r.name||r.id))}</b> <span class="badge demo">DEMO</span><br><span class="small mut">${esc(r.actor||'')} · ${fmtT(r.createdAt)}</span></div>`).join('') : `<p class="mut small">${esc(t('noItems'))}</p>`;
-    }, snapErr(elId)));
+    });
   demoList('submissions', 'demo-subs'); demoList('scans', 'demo-scans');
 }
 function exitDemo() { stopDemo(); S.demoView = false; stopListeners(); unlocked() && S.mode ? go('incidents') : renderPin(); }
@@ -1727,7 +1776,7 @@ function renderRouteError(kind) {
     : t('routeErrIncident');
   const sub = kind === 'offline' ? t('routeErrOfflineSub') : t('routeErrSub');
   app().innerHTML = chrome(t('appName')) + `
-  <div class="card center"><h2>⚠️ ${esc(msg)}</h2>
+  <div class="card center"><h2>${esc(msg)}</h2>
   <p class="mut">${esc(sub)}</p>
   <button onclick="exitRouteError()">${esc(t('back'))}</button></div>`;
 }
