@@ -540,13 +540,12 @@ function footnav(active) {
   if (!S.mode || S.view === 'demo') return '';
   const items = [
     ['incidents', t('incidents'), "go('incidents')"],
-    ['demo', t('demo'), "go('demo')"],
   ];
   return `<footer class="foot">` + items.map(([v, l, fn]) =>
     `<button class="${active===v?'on':''}"${active===v?' aria-current="page"':''} onclick="${fn}">${l}</button>`).join('') + `</footer>`;
 }
-/* La navegación inferior puede pedir la demo: debe pasar por enterDemo()
-   (oyentes + simulador), no por render() a secas. */
+/* enterDemo() is self-guarding: demo opens only for signed-out portfolio
+   visitors (portfolioRef); everyone else is routed home. */
 function go(view) {
   if (view === 'demo') return enterDemo();
   S.view = view; stopDemo(); render();
@@ -574,7 +573,7 @@ function renderPin() {
       <button type="button" class="fn" onclick="pinClear()">${esc(t('pinClearBtn'))}</button><button type="button" onclick="pinKey('0')">0</button><button type="button" class="fn" aria-label="${esc(t('backKey'))}" onclick="pinBack()">&#9003;</button>
     </div>
     <button class="warn" onclick="once('submitPin',submitPin)">${esc(t('pinBtn'))}</button>
-    <button class="sec" onclick="enterDemo()">${esc(t('demoLive'))}</button>
+    ${portfolioRef() ? `<button class="sec" onclick="enterDemo()">${esc(t('demoLive'))}</button>` : ''}
     <p class="mut small">${esc(t('pinSub'))}</p>
     <div class="offline">&#9673; ${esc(t('offlineBanner'))}</div>
   </div>`;
@@ -1594,7 +1593,27 @@ const DEMO_FILLER = [
   {t:'general_message', v:{message_text:'Mensaje de prueba del simulador DEMO — ignórese.'}},
 ];
 let demoStep = 0;
-function enterDemo() { S.view = 'demo'; stopListeners(); renderDemoView(); startDemoSim(); }
+/* Demo is a portfolio showcase: it may open ONLY for a signed-OUT visitor who
+   arrived from the portfolio (?utm_source=portfolio, or the portfolio referrer).
+   Signed-in users and direct visits never see it. */
+function portfolioRef() {
+  try {
+    const q = new URLSearchParams(location.search || '');
+    if ((q.get('utm_source') || '').toLowerCase() === 'portfolio') return true;
+    if (/legobele\.github\.io\/portfolio\//i.test(document.referrer || '')) return true;
+  } catch (e) {}
+  return false;
+}
+function demoAllowed() { return !unlocked() && portfolioRef(); }
+function guardDemo() {
+  // true when the demo may open; otherwise routes home (incidents / mode / PIN) and returns false
+  if (demoAllowed()) return true;
+  if (unlocked() && S.mode) go('incidents');
+  else if (unlocked()) { S.view = 'mode'; render(); }
+  else renderPin();
+  return false;
+}
+function enterDemo() { if (!guardDemo()) return; S.view = 'demo'; stopListeners(); renderDemoView(); startDemoSim(); }
 async function renderDemoView() {
   S.view = 'demo'; S.demoView = true; setHash(routeFor('demo'));
   app().innerHTML = chrome(`${esc(t('demoView'))}`, {demo:true}) + `
@@ -1829,6 +1848,7 @@ window.addEventListener('DOMContentLoaded', () => {
   bootUnlockCheck().then(ok => {
     if (ok && kiosk) { S.mode = 'kiosk'; S.actor = kiosk; }
     if (!routeFromHash(true)) {
+      if (!unlocked() && portfolioRef()) { enterDemo(); return; } // portfolio showcase visitor
       if (unlocked() && S.mode) S.view = 'incidents';
       else if (unlocked()) S.view = 'mode';
       else S.view = 'pin';
